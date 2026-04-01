@@ -12,7 +12,10 @@
 //  5. Execute createDailyTrigger() UMA VEZ para ativar envio às 7h
 // ============================================================
 
-var SPREADSHEET_ID = ''; // Opcional: ID da planilha para log de tarefas
+// ⚠️  PREENCHA COM O ID DA SUA PLANILHA GOOGLE SHEETS
+//     URL da planilha: https://docs.google.com/spreadsheets/d/<<ID_AQUI>>/edit
+//     Cole apenas o trecho entre /d/ e /edit
+var SPREADSHEET_ID = '1FMoWYDqersAk8zXy_a_ZDShUDU-s339eOC9f5P2mKfY';
 var EMAIL_FROM_NAME = 'Cronograma Mensal · Mabu Hospitalidade';
 var ADMIN_EMAIL     = 'e.probst@mymabu.com.br';
 var GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec';
@@ -31,11 +34,24 @@ function doGet(e) {
 
   // Busca confirmações pendentes (chamado pelo dashboard no init)
   if (action === 'get_confirmations') {
-    return handleGetConfirmations();
+    return handleGetConfirmations(callback);
+  }
+
+  // Lê todas as tarefas da planilha (banco de dados → dashboard)
+  if (action === 'get_tasks') {
+    return handleGetTasks(callback);
   }
 
   // Ping / teste de conexão (JSONP)
   var payload = JSON.stringify({ ok: true, message: 'Cronograma Mensal Mailer online ✅', ts: new Date().toISOString() });
+  var content = callback ? callback + '(' + payload + ')' : payload;
+  return ContentService.createTextOutput(content)
+    .setMimeType(callback ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
+}
+
+// ── HELPER JSONP/JSON ─────────────────────────────────────────
+function jsonpResponse(obj, callback) {
+  var payload = JSON.stringify(obj);
   var content = callback ? callback + '(' + payload + ')' : payload;
   return ContentService.createTextOutput(content)
     .setMimeType(callback ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
@@ -67,7 +83,7 @@ function handleConfirmDelivery(params) {
     .setTitle('Entrega Confirmada · Cronograma Mensal');
 }
 
-function handleGetConfirmations() {
+function handleGetConfirmations(callback) {
   var props  = PropertiesService.getScriptProperties();
   var all    = props.getProperties();
   var result = [];
@@ -76,8 +92,65 @@ function handleGetConfirmations() {
       try { result.push(JSON.parse(all[k])); } catch(e) {}
     }
   });
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, confirmations: result }))
-    .setMimeType(ContentService.MimeType.JSON);
+  return jsonpResponse({ ok: true, confirmations: result }, callback);
+}
+
+// ── GET_TASKS — Lê planilha e retorna tarefas ao dashboard ────
+function handleGetTasks(callback) {
+  if (!SPREADSHEET_ID) {
+    return jsonpResponse({ ok: false, error: 'SPREADSHEET_ID nao configurado.' }, callback);
+  }
+  try {
+    var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
+    var data  = sheet.getDataRange().getValues();
+    if (data.length < 2) {
+      return jsonpResponse({ ok: true, tasks: [] }, callback);
+    }
+
+    // Mapeamento flexível: aceita nomes com e sem acento
+    var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
+    function col(candidates) {
+      for (var i = 0; i < candidates.length; i++) {
+        var idx = headers.indexOf(candidates[i].toLowerCase());
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    }
+    var iID      = col(['ID','id']);
+    var iNome    = col(['Nome','name']);
+    var iNota    = col(['Nota','note']);
+    var iResp    = col(['Responsavel','Responsável','resp']);
+    var iDest    = col(['Destinatario','Destinatário','dest']);
+    var iEmail   = col(['Email','E-mail','email']);
+    var iPrazo   = col(['Prazo','prazo']);
+    var iEntrega = col(['Entrega','entrega']);
+    var iSt      = col(['Status','status']);
+    var iMes     = col(['Mes','Mês','month']);
+
+    var tasks = [];
+    for (var r = 1; r < data.length; r++) {
+      var row  = data[r];
+      var nome = iNome >= 0 ? String(row[iNome] || '').trim() : '';
+      if (!nome) continue;
+      tasks.push({
+        id:      (iID >= 0 && row[iID] !== '') ? Number(row[iID]) : r,
+        name:    nome,
+        note:    iNota    >= 0 ? String(row[iNota]    || '') : '',
+        resp:    iResp    >= 0 ? String(row[iResp]    || '-') : '-',
+        dest:    iDest    >= 0 ? String(row[iDest]    || '-') : '-',
+        email:   iEmail   >= 0 ? String(row[iEmail]   || '') : '',
+        prazo:   iPrazo   >= 0 ? String(row[iPrazo]   || '-') : '-',
+        entrega: iEntrega >= 0 ? String(row[iEntrega] || '-') : '-',
+        status:  iSt      >= 0 ? String(row[iSt]      || 'NO PRAZO') : 'NO PRAZO',
+        month:   iMes     >= 0 ? String(row[iMes]     || '') : '',
+      });
+    }
+    return jsonpResponse({ ok: true, tasks: tasks, count: tasks.length, ts: new Date().toISOString() }, callback);
+  } catch (err) {
+    Logger.log('handleGetTasks error: ' + err.message + ' | stack: ' + err.stack);
+    return jsonpResponse({ ok: false, error: String(err.message) }, callback);
+  }
 }
 
 function buildConfirmationPage(name, prazo, alreadyDone) {
@@ -125,6 +198,7 @@ function doPost(e) {
     else if (action === 'send_summary') result = handleSendSummary(body);
     else if (action === 'sync')         result = handleSync(body);
     else if (action === 'update_task')  result = handleUpdateTask(body);
+    else if (action === 'delete_task')  result = handleDeleteTask(body);
     else                                result = { ok: false, error: 'Ação desconhecida: ' + action };
 
     return jsonResponse(result);
@@ -329,6 +403,35 @@ function handleSync(body) {
   }
 }
 
+// ── DELETE_TASK ──────────────────────────────────────────────
+// Remove uma linha da planilha pelo ID
+
+function handleDeleteTask(body) {
+  var id    = body.id;
+  var month = body.month || '';
+  if (!SPREADSHEET_ID || id === undefined || id === null) return { ok: true, skipped: true };
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+    // Remove da aba Todos
+    var sheetTodos = ss.getSheetByName('Todos') || ss.getSheets()[0];
+    deleteRowById(sheetTodos, id);
+
+    // Remove da aba do mês
+    var mesLabel = MONTH_SHEET[month] || '';
+    if (mesLabel) {
+      var sheetMes = ss.getSheetByName(mesLabel);
+      if (sheetMes) deleteRowById(sheetMes, id);
+    }
+
+    Logger.log('delete_task OK: id=' + id + ' mes=' + month);
+    return { ok: true };
+  } catch (err) {
+    Logger.log('delete_task error: ' + err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
 // ── UPDATE_TASK ──────────────────────────────────────────────
 // Atualiza uma única tarefa na planilha de log
 
@@ -411,32 +514,68 @@ function sendTestEmail() {
 
 // ── LOG EM PLANILHA (opcional) ────────────────────────────────
 
+// Colunas de todas as abas
+var SHEET_COLS = ['ID','Nome','Nota','Responsavel','Destinatario','Email','Prazo','Entrega','Status','Mes','Atualizado em'];
+
+// Mapa de chave de mês → nome da aba
+var MONTH_SHEET = {
+  'jan':'Janeiro','fev':'Fevereiro','mar':'Marco','abr':'Abril',
+  'mai':'Maio','jun':'Junho','jul':'Julho','ago':'Agosto',
+  'set':'Setembro','out':'Outubro','nov':'Novembro','dez':'Dezembro'
+};
+
+// Upsert de uma linha em uma aba pelo ID (col 0)
+function upsertRow(sheet, id, row) {
+  var data  = sheet.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][0]) === String(id)) {
+      sheet.getRange(r + 1, 1, 1, SHEET_COLS.length).setValues([row]);
+      return;
+    }
+  }
+  sheet.appendRow(row);
+}
+
+// Remove linha de uma aba pelo ID (col 0)
+function deleteRowById(sheet, id) {
+  var data = sheet.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][0]) === String(id)) {
+      sheet.deleteRow(r + 1);
+      return;
+    }
+  }
+}
+
 function logTasksToSheet(tasks) {
   if (!SPREADSHEET_ID) return;
-  var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = ss.getSheetByName('Tarefas') || ss.insertSheet('Tarefas');
-
-  // Cabeçalho se vazio
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['ID','Nome','Responsável','Destinatário','E-mail','Prazo','Entrega','Status','Mês','Atualizado em']);
-  }
-
+  var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
   var now = new Date().toISOString();
+
   tasks.forEach(function(t) {
-    // Verifica se já existe linha com mesmo ID para atualizar
-    var data = sheet.getDataRange().getValues();
-    var found = false;
-    for (var r = 1; r < data.length; r++) {
-      if (String(data[r][0]) === String(t.id)) {
-        sheet.getRange(r + 1, 1, 1, 10).setValues([[
-          t.id, t.name, t.resp, t.dest, t.email||'', t.prazo, t.entrega||'—', t.status, t.month, now
-        ]]);
-        found = true;
-        break;
-      }
+    var row = [
+      t.id, t.name||'', t.note||'', t.resp||'-', t.dest||'-',
+      t.email||'', t.prazo||'-', t.entrega||'-', t.status||'NO PRAZO', t.month||'', now
+    ];
+
+    // Aba Todos
+    var sheetTodos = ss.getSheetByName('Todos') || ss.insertSheet('Todos');
+    if (sheetTodos.getLastRow() === 0) {
+      sheetTodos.appendRow(SHEET_COLS);
+      sheetTodos.getRange(1,1,1,SHEET_COLS.length).setFontWeight('bold');
     }
-    if (!found) {
-      sheet.appendRow([t.id, t.name, t.resp, t.dest, t.email||'', t.prazo, t.entrega||'—', t.status, t.month, now]);
+    upsertRow(sheetTodos, t.id, row);
+
+    // Aba do mês correspondente
+    var mesLabel = MONTH_SHEET[t.month] || '';
+    if (mesLabel) {
+      var sheetMes = ss.getSheetByName(mesLabel);
+      if (!sheetMes) {
+        sheetMes = ss.insertSheet(mesLabel);
+        sheetMes.appendRow(SHEET_COLS);
+        sheetMes.getRange(1,1,1,SHEET_COLS.length).setFontWeight('bold');
+      }
+      upsertRow(sheetMes, t.id, row);
     }
   });
 }
@@ -541,4 +680,13 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ── TESTE DE ACESSO À PLANILHA ────────────────────────────────
+// Execute esta função UMA VEZ no editor para autorizar o acesso ao Sheets
+function testSheetAccess() {
+  var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
+  var rows  = sheet.getLastRow();
+  Logger.log('Acesso OK! Planilha: ' + ss.getName() + ' | Aba: ' + sheet.getName() + ' | Linhas: ' + rows);
 }
