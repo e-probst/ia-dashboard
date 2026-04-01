@@ -647,6 +647,7 @@
       <button class="btn-cancel" onclick="testGasConnection()" style="border-color:var(--blue-mid);color:var(--blue-main)">🔌 Testar conexão</button>
       <button class="btn-cancel" id="btnOpenGas" onclick="openGasUrl()" title="Abrir URL no navegador para verificar">↗ Abrir URL</button>
       <button class="btn-cancel" id="btnSendTest" onclick="sendTestEmailViaGas()" style="border-color:#1a7a4a;color:#1a7a4a" title="Envia e-mail de teste para e.probst@mymabu.com.br">📧 Enviar teste</button>
+      <button class="btn-cancel" onclick="forceSyncAllToGas()" style="border-color:#b45000;color:#b45000" title="Reenvia todas as tarefas ao Sheets com datas corrigidas">🔄 Re-sincronizar tudo</button>
       <button class="btn-cancel" onclick="closeConfigModal()">Cancelar</button>
       <button class="btn-save" onclick="saveGasConfig()" style="background:linear-gradient(135deg,#1a7a4a,#2da862)">Salvar</button>
     </div>
@@ -3487,6 +3488,11 @@ function init(){
   document.getElementById('headerDate').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   renderTimeline();
   fetchConfirmations();
+  fetchTasksFromGas();
+  // Polling periódico — 30 s para sync quase em tempo real
+  setInterval(fetchConfirmations, 30 * 1000); // confirmações a cada 30 s
+  setInterval(fetchTasksFromGas,  30 * 1000); // Sheets → dashboard a cada 30 s
+  setInterval(syncTasksToGas,     30 * 1000); // dashboard → Sheets a cada 30 s
 }
 
 // ── Timeline ──
@@ -3494,7 +3500,7 @@ function renderTimeline(){
   const track = document.getElementById('timelineTrack');
   track.innerHTML = MONTHS.map(m => {
     const mTasks = allTasks.filter(t => t.month === m.key);
-    const done = mTasks.filter(t => t.status === 'ENTREGUE').length;
+    const done = mTasks.filter(t => t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO').length;
     const atrasado = mTasks.filter(t => t.status === 'ATRASADO').length;
     const pending = mTasks.filter(t => t.status === 'NO PRAZO').length;
     const pct = mTasks.length ? Math.round(done/mTasks.length*100) : 0;
@@ -3534,7 +3540,7 @@ function selectMonth(key){
 }
 
 // ── Helpers ──
-function parseBR(s){ if(!s||s==='—')return null; const[d,m,y]=s.split('/'); return new Date(+y,+m-1,+d); }
+function parseBR(s){ if(!s||s==='—')return null; const[d,m,y]=s.split('/'); const dt=new Date(+y,+m-1,+d); if(!dt||isNaN(dt)||dt.getFullYear()!==+y||dt.getMonth()!==+m-1||dt.getDate()!==+d)return null; return dt; }
 function fromInputDate(v){ if(!v)return'—'; const[y,m,d]=v.split('-'); return `${d}/${m}/${y}`; }
 function toInputDate(v){ if(!v||v==='—')return''; const[d,m,y]=v.split('/'); return `${y}-${m}-${d}`; }
 function ini(n){ if(!n||n==='—')return'?'; return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
@@ -3554,7 +3560,7 @@ function bLabel(s){
   if(s==='ENTREGUE COM ATRASO')return'Com Atraso';
   return s;
 }
-function esc(s){ return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s){ return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // ── Filters ──
 function applyFilters(){
@@ -3579,7 +3585,7 @@ function clearFilters(){document.getElementById('searchInput').value='';document
 let editingId = null;
 function openModal(id){
   editingId=id||null;
-  const t=id?allTasks.find(x=>x.id===id):null;
+  const t=id?allTasks.find(x=>String(x.id)===String(id)):null;
   document.getElementById('modalTitle').textContent=id?'Editar Tarefa':'Nova Tarefa';
   document.getElementById('fName').value=t?t.name:'';
   document.getElementById('fNote').value=t?(t.note?t.note.replace(/^📝\s*/,''):''):'';
@@ -3601,7 +3607,7 @@ function openModal(id){
 }
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open');editingId=null;}
 function closeModalOutside(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeTrash();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeTrash();closeConfigModal();closeNotifyModal();}});
 
 
 
@@ -3730,10 +3736,28 @@ function calcStatus(prazo, entrega) {
 }
 
 function recalcAllStatuses() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let changed = false;
   allTasks.forEach(t => {
-    if(t._edited) return; // keep manually saved status
-    t.status = calcStatus(t.prazo, t.entrega);
+    const prev = t.status;
+    if(t._edited) {
+      // Tarefas com status de entrega correto: não recalcula
+      const entregue = t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO';
+      if(entregue) return;
+      // Tem data de entrega mas status ainda não reflete: recalcula (dados legados ou edge-case)
+      if(t.entrega && t.entrega !== '—') {
+        t.status = calcStatus(t.prazo, t.entrega);
+      } else {
+        // Sem data de entrega: recalcula NO PRAZO ↔ ATRASADO conforme data atual
+        const dPrazo = parseBR(t.prazo);
+        if(dPrazo) t.status = dPrazo < today ? 'ATRASADO' : 'NO PRAZO';
+      }
+    } else {
+      t.status = calcStatus(t.prazo, t.entrega);
+    }
+    if(t.status !== prev) changed = true;
   });
+  if(changed) markReportStale();
 }
 
 function previewStatus() {
@@ -3755,23 +3779,24 @@ function saveTask(){
   const prazo=fromInputDate(document.getElementById('fPrazo').value);
   const entrega=fromInputDate(document.getElementById('fEntrega').value);
   const email=document.getElementById('fEmail').value.trim();
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showToast('⚠️ E-mail inválido','');return;}
   // Status is auto-calculated from dates; manual override only if no delivery date
   const manualStatus=document.getElementById('fStatus').value;
   const status = (entrega && entrega !== '—') ? calcStatus(prazo, entrega)
                : (prazo && prazo !== '—')     ? calcStatus(prazo, null)
                : manualStatus;
   if(editingId){
-    const t=allTasks.find(x=>x.id===editingId);
-    if(t)Object.assign(t,{name,note,resp,dest,email,prazo,entrega,status,_edited:true});
+    const t=allTasks.find(x=>String(x.id)===String(editingId));
+    if(t)Object.assign(t,{name,note,resp,dest,email,prazo,entrega,status,_edited:true,_dateEdited:true});
     showToast('✅ Tarefa atualizada!','green');
   } else {
-    const newT={id:nextId++,name,note,resp,dest,email,prazo,entrega,status,month:activeMth,_edited:true,_new:true};
+    const newT={id:nextId++,name,note,resp,dest,email,prazo,entrega,status,month:activeMth,_edited:true,_new:true,_dateEdited:true};
     allTasks.push(newT);
     tasks.push(newT);
     showToast('✅ Nova tarefa criada!','green');
   }
   saveOverrides();
-  pushTaskToGas(allTasks.find(x=>x.id===(editingId||nextId-1)));
+  pushTaskToGas(allTasks.find(x=>String(x.id)===String(editingId||nextId-1)));
   closeModal();
   renderTimeline();
   applyFilters();
@@ -3782,9 +3807,9 @@ function saveTask(){
 function deleteTask(){
   if(!editingId)return;
   if(!confirm('Mover esta tarefa para a lixeira?'))return;
-  const idx=allTasks.findIndex(x=>x.id===editingId);
-  if(idx>-1){const[r]=allTasks.splice(idx,1);r._deletedAt=new Date().toLocaleString('pt-BR');trash.unshift(r);}
-  const li=tasks.findIndex(x=>x.id===editingId);
+  const idx=allTasks.findIndex(x=>String(x.id)===String(editingId));
+  if(idx>-1){const[r]=allTasks.splice(idx,1);r._deletedAt=new Date().toLocaleString('pt-BR');trash.unshift(r);deleteTaskFromGas(r.id,r.month);}
+  const li=tasks.findIndex(x=>String(x.id)===String(editingId));
   if(li>-1)tasks.splice(li,1);
   saveOverrides();updateTrashBadge();showToast('🗑 Tarefa movida para a lixeira','');closeModal();renderTimeline();applyFilters();markReportStale();
 }
@@ -3834,19 +3859,29 @@ function renderTrashList(){
 }
 
 function restoreTask(i){
-  const[t]=trash.splice(i,1);delete t._deletedAt;
+  const[t]=trash.splice(i,1);
+  delete t._deletedAt;
+  t._edited=true; t._dateEdited=true; // garante que datas sejam preservadas ao restaurar
+  if(!t.month||!MONTHS.find(m=>m.key===t.month)) t.month=activeMth; // corrige mês inválido
   allTasks.push(t);
   if(t.month===activeMth)tasks.push(t);
+  pushTaskToGas(t);
   saveOverrides();updateTrashBadge();renderTrashList();renderTimeline();applyFilters();showToast('↩ Tarefa restaurada!','green');markReportStale();
 }
 function deletePermanent(i){
   if(!confirm('Excluir permanentemente?'))return;
-  trash.splice(i,1);updateTrashBadge();renderTrashList();showToast('❌ Excluído permanentemente','');
+  const[removed]=trash.splice(i,1);
+  deleteTaskFromGas(removed.id,removed.month);
+  saveOverrides();updateTrashBadge();renderTrashList();showToast('❌ Excluído permanentemente','');
 }
-function emptyTrash(){
+async function emptyTrash(){
   if(!trash.length)return;
   if(!confirm(`Excluir permanentemente os ${trash.length} item(s)?`))return;
-  trash.length=0;updateTrashBadge();renderTrashList();showToast('🗑 Lixeira esvaziada','');
+  const items=[...trash];
+  trash.length=0;
+  saveOverrides();updateTrashBadge();renderTrashList();
+  await Promise.all(items.map(t=>deleteTaskFromGas(t.id,t.month)));
+  showToast('🗑 Lixeira esvaziada','');
 }
 
 // ── Toast ──
@@ -3880,7 +3915,7 @@ function render(){
         const rowHol=getHolidaysForDate(t.prazo);
         html+=`<tr class="row${isRowToday?' today-row':''}">
           <td class="row-num">${gi}</td>
-          <td><div class="task-name">${esc(t.name)}${t.note?`<span class="task-note">${esc(t.note)}</span>`:''}${isRowToday&&t.status!=='ENTREGUE'?'<span class="today-badge">⚡ HOJE</span>':''}</div></td>
+          <td><div class="task-name">${esc(t.name)}${t.note?`<span class="task-note">${esc(t.note)}</span>`:''}${isRowToday&&t.status!=='ENTREGUE'&&t.status!=='ENTREGA ANTECIPADA'&&t.status!=='ENTREGUE COM ATRASO'?'<span class="today-badge">⚡ HOJE</span>':''}</div></td>
           <td>${t.resp&&t.resp!=='—'?`<span class="chip"><span class="avatar">${ini(t.resp)}</span>${esc(t.resp)}</span>`:'<span class="date-empty">—</span>'}</td>
           <td>${t.dest&&t.dest!=='—'?`<span class="chip"><span class="avatar dest">${ini(t.dest)}</span>${esc(t.dest)}</span>`:'<span class="date-empty">—</span>'}</td>
           <td><span class="date-cell${isRowToday?' today-date':''}">${t.prazo}</span></td>
@@ -3948,7 +3983,7 @@ function exportXLSX(){
   s.onload=_doExportXLSX;s.onerror=()=>showToast('⚠️ Erro ao carregar XLSX','');document.head.appendChild(s);
 }
 function _doExportXLSX(){
-  const lbl=s=>s==='ENTREGUE'?'Entregue':s==='NO PRAZO'?'No Prazo':s==='ATRASADO'?'Atrasado':s;
+  const lbl=s=>({'ENTREGUE':'Entregue','NO PRAZO':'No Prazo','ATRASADO':'Atrasado','ENTREGA ANTECIPADA':'Antecipada','ENTREGUE COM ATRASO':'Com Atraso'})[s]||s;
   const rows=filtered.map((t,i)=>({'#':i+1,'Atividade':t.name,'Observação':t.note?t.note.replace(/^📝\s*/,''):'','Responsável':t.resp==='—'?'':t.resp,'Destinatário':t.dest==='—'?'':t.dest,'Prazo':t.prazo==='—'?'':t.prazo,'Data de Entrega':t.entrega==='—'?'':t.entrega,'Status':lbl(t.status)}));
   const ws=XLSX.utils.json_to_sheet(rows);
   ws['!cols']=[{wch:4},{wch:52},{wch:30},{wch:24},{wch:24},{wch:12},{wch:14},{wch:12}];
@@ -3976,14 +4011,26 @@ function saveOverrides(){
     allTasks.forEach(t=>{
       if(!t._edited) return;
       const payload = {
-        entrega: t.entrega||'—', note: t.note||'', email: t.email||'',
-        prazo: t.prazo||'—', resp: t.resp||'—', dest: t.dest||'—',
+        note: t.note||'', email: t.email||'', resp: t.resp||'—', dest: t.dest||'—',
         status: t.status||'NO PRAZO', month: t.month||activeMth, _edited: true,
+        _dateEdited: !!t._dateEdited,
+        // Datas só persistidas quando o usuário as definiu explicitamente (_dateEdited)
+        // para evitar que datas corrompidas do Sheets sobrevivam entre sessões.
+        prazo:   t._dateEdited ? (t.prazo  ||'—') : undefined,
+        entrega: t._dateEdited ? (t.entrega||'—') : undefined,
       };
-      if(t._new){ newTasks.push({...payload, id:t.id, name:t.name, _new:true}); }
+      if(t._new){ newTasks.push({...payload, id:t.id, name:t.name, _new:true,
+        prazo: t.prazo||'—', entrega: t.entrega||'—', _dateEdited: true}); }
       else { overrides[t.id] = payload; }
     });
-    localStorage.setItem(TASKS_KEY, JSON.stringify({overrides, newTasks}));
+    // Persiste lixeira para sobreviver a refreshes
+    const savedTrash = trash.map(t=>({
+      id:t.id, name:t.name||'', note:t.note||'', resp:t.resp||'—', dest:t.dest||'—',
+      email:t.email||'', prazo:t.prazo||'—', entrega:t.entrega||'—',
+      status:t.status||'NO PRAZO', month:t.month||'', _edited:!!t._edited,
+      _new:!!t._new, _deletedAt:t._deletedAt||'',
+    }));
+    localStorage.setItem(TASKS_KEY, JSON.stringify({overrides, newTasks, trash: savedTrash}));
   }catch(e){ console.warn('[Mabu] saveOverrides failed', e); }
 }
 
@@ -3991,26 +4038,66 @@ function loadOverrides(){
   try{
     const raw = localStorage.getItem(TASKS_KEY);
     if(!raw) return;
-    const data = JSON.parse(raw);
-    const ov       = data.overrides || data;
-    const newTasks = data.newTasks  || [];
+    let data;
+    try{ data = JSON.parse(raw); }
+    catch(parseErr){
+      console.error('[Mabu] localStorage corrompido, limpando:', parseErr);
+      localStorage.removeItem(TASKS_KEY);
+      showToast('⚠️ Dados locais corrompidos foram limpos. Recarregue a página.','');
+      return;
+    }
+    const ov         = data.overrides || data;
+    const newTasks   = data.newTasks  || [];
+    const savedTrash = data.trash     || [];
+
+    // Restaura lixeira (sem duplicar)
+    savedTrash.forEach(t => { if(!trash.find(x=>x.id===t.id)) trash.push(t); });
+
+    // IDs na lixeira não devem aparecer em allTasks
+    const trashedIds = new Set(trash.map(t=>String(t.id)));
+
+    // Remove tarefas deletadas que voltaram do hardcoded
+    for(let i=allTasks.length-1;i>=0;i--){
+      if(trashedIds.has(String(allTasks[i].id))) allTasks.splice(i,1);
+    }
+
+    // Aplica overrides nas tarefas restantes
     let count = 0;
     allTasks.forEach(t => {
-      if(ov[t.id]){
-        const originalEmail = t.email; // preserva email do HTML antes do override
-        Object.assign(t, ov[t.id]);
+      const saved = ov[t.id];
+      if(saved && !trashedIds.has(String(t.id))){
+        const originalEmail = t.email;
+        // Campos de texto sempre restaurados
+        Object.assign(t, {
+          note:  saved.note  != null ? saved.note  : t.note,
+          email: saved.email != null ? saved.email : t.email,
+          resp:  saved.resp  || t.resp,
+          dest:  saved.dest  || t.dest,
+          status: saved.status || t.status,
+          month:  saved.month  || t.month,
+          _edited: true,
+          _dateEdited: !!saved._dateEdited,
+        });
         if(!t.email && originalEmail) t.email = originalEmail;
+        // Datas SÓ restauradas se o usuário as definiu explicitamente no dashboard.
+        // Isso impede que datas corrompidas por import do Sheets (locale MM/DD) sobrevivam.
+        if(saved._dateEdited){
+          if(saved.prazo   && saved.prazo   !== '—') t.prazo   = saved.prazo;
+          if(saved.entrega && saved.entrega !== '—') t.entrega = saved.entrega;
+        }
         count++;
       }
     });
+
     newTasks.forEach(nt => {
-      if(!allTasks.find(t => t.id === nt.id)){
+      if(!allTasks.find(t=>t.id===nt.id) && !trashedIds.has(String(nt.id))){
         allTasks.push({...nt});
-        if(nt.id >= nextId) nextId = nt.id + 1;
+        if(nt.id>=nextId) nextId=nt.id+1;
       }
     });
+
     const total = count + newTasks.length;
-    if(total) console.log('[Mabu] Loaded ' + count + ' overrides + ' + newTasks.length + ' new tasks');
+    if(total) console.log('[Mabu] Loaded '+count+' overrides + '+newTasks.length+' new tasks');
   }catch(e){ console.warn('[Mabu] loadOverrides failed', e); }
 }
 
@@ -4063,6 +4150,9 @@ function openConfigModal(){
   const cfg = loadGasConfig();
   document.getElementById('gasUrl').value = cfg.url||'';
   document.getElementById('gasTestResult').style.display='none';
+  document.getElementById('gasEmailTestResult').style.display='none';
+  const btnTest = document.getElementById('btnSendTest');
+  btnTest.disabled = false; btnTest.textContent = '📧 Enviar teste';
   document.getElementById('configOverlay').classList.add('open');
 }
 function closeConfigModal(){ document.getElementById('configOverlay').classList.remove('open'); }
@@ -4181,7 +4271,7 @@ function testGasConnection(){
   document.head.appendChild(s);
 }
 
-// Sync all _edited tasks to Google Apps Script
+// Sync all _edited tasks to Google Apps Script (periódico)
 async function syncTasksToGas(){
   const cfg = loadGasConfig();
   if(!cfg.url) return;
@@ -4194,8 +4284,26 @@ async function syncTasksToGas(){
       body: JSON.stringify({ action:'sync', tasks: edited }),
       mode:'no-cors',
     });
-    // no-cors: we can't read the response, but the request goes through
   }catch(e){ console.warn('[GAS] sync failed:', e); }
+}
+
+// Re-sincroniza TODAS as tarefas ao Sheets (corrige datas invertidas por auto-conversão)
+async function forceSyncAllToGas(){
+  const cfg = loadGasConfig();
+  if(!cfg.url){ showToast('⚠️ Apps Script não configurado',''); return; }
+  showToast('⏳ Sincronizando todas as tarefas…','');
+  try{
+    await fetch(cfg.url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'sync', tasks: allTasks }),
+      mode:'no-cors',
+    });
+    showToast('✅ Todas as tarefas enviadas ao Sheets!','green');
+  }catch(e){
+    console.warn('[GAS] forceSyncAll failed:', e);
+    showToast('⚠️ Erro ao sincronizar — verifique o Apps Script','');
+  }
 }
 
 // Send a single task update to Apps Script
@@ -4211,24 +4319,136 @@ async function pushTaskToGas(task){
     });
   }catch(e){ console.warn('[GAS] push failed:', e); }
 }
+
+// Garante formato DD/MM/YYYY; ignora valores inválidos
+function normDateBR(v){
+  if(!v||v==='—'||v==='-') return '—';
+  const s = String(v).trim();
+  // Já está no formato DD/MM/YYYY: valida com parseBR
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return parseBR(s) ? s : '—';
+  // ISO YYYY-MM-DD: parse direto sem new Date() para evitar timezone shift
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(iso){ const br=`${iso[3]}/${iso[2]}/${iso[1]}`; return parseBR(br) ? br : '—'; }
+  // Fallback para Date object stringificado (ex: "Mon Feb 15 2026...")
+  const d = new Date(s);
+  if(!isNaN(d)) return [String(d.getDate()).padStart(2,'0'), String(d.getMonth()+1).padStart(2,'0'), d.getFullYear()].join('/');
+  return '—';
+}
+
+// ── Helper JSONP — contorna CORS para requisições GET ao Apps Script ──
+// fetch() normal é bloqueado por CORS quando servido de file:// ou Drive.
+// Script tags não têm restrição de CORS; o doGet do GAS já suporta callback=.
+function fetchJsonp(url, timeoutMs){
+  timeoutMs = timeoutMs || 10000;
+  return new Promise(function(resolve, reject){
+    const cbName = '_gasJsonp_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
+    const sep    = url.includes('?') ? '&' : '?';
+    const script = document.createElement('script');
+    const timer  = setTimeout(function(){
+      cleanup(); reject(new Error('JSONP timeout'));
+    }, timeoutMs);
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[cbName];
+      if(script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = function(data){ cleanup(); resolve(data); };
+    script.onerror = function(){ cleanup(); reject(new Error('JSONP load error')); };
+    script.src = url + sep + 'callback=' + cbName;
+    document.head.appendChild(script);
+  });
+}
+
+// Fetch all tasks from Sheets and merge into allTasks (Sheets → Dashboard)
+async function fetchTasksFromGas(){
+  const cfg = loadGasConfig();
+  if(!cfg.url) return;
+  try{
+    // Usa JSONP para evitar bloqueio de CORS (funciona de file:// e Google Drive)
+    const data = await fetchJsonp(cfg.url + '?action=get_tasks');
+    if(!data.ok || !data.tasks || !data.tasks.length) return;
+
+    const trashedIds = new Set(trash.map(t=>String(t.id)));
+    let added = 0, updated = 0;
+    data.tasks.forEach(st => {
+      const sid = Number(st.id) || 0;
+      if(trashedIds.has(String(sid))) return; // não re-adiciona o que está na lixeira
+      const prazo   = normDateBR(st.prazo);
+      const entrega = normDateBR(st.entrega);
+      const existing = allTasks.find(t => String(t.id) === String(st.id));
+      if(existing){
+        // Metadados de texto SEMPRE atualizados do Sheets — assim edições feitas
+        // diretamente na planilha aparecem no dashboard no próximo sync.
+        if(st.name)  existing.name  = st.name;
+        if(st.note  != null) existing.note  = st.note;
+        if(st.resp)  existing.resp  = st.resp || existing.resp;
+        if(st.dest)  existing.dest  = st.dest || existing.dest;
+        if(st.email != null) existing.email = st.email;
+        if(st.month) existing.month = st.month;
+        // Datas NUNCA importadas do Sheets para tarefas já existentes.
+        // O Sheets com locale americano auto-converte DD/MM → Date object invertido (MM/DD).
+        // O dashboard é a única fonte de verdade para prazo e entrega.
+        // Status NUNCA vem do Sheets — sempre calculado por recalcAllStatuses().
+        updated++;
+      } else {
+        // Tarefa existe só no Sheets (criada em outra sessão ou direto na planilha)
+        // Status NUNCA vem do Sheets — recalcAllStatuses calcula após o merge
+        allTasks.push({
+          id: sid || nextId, name: st.name, note: st.note||'', resp: st.resp||'—',
+          dest: st.dest||'—', email: st.email||'', prazo, entrega, month: st.month||'',
+          status: 'NO PRAZO',
+        });
+        if(sid > 0 && sid >= nextId) nextId = sid + 1;
+        added++;
+      }
+    });
+
+    if(updated || added){
+      recalcAllStatuses();
+      renderTimeline();
+      tasks = allTasks.filter(t => t.month === activeMth);
+      applyFilters();
+      updateNotifyBadge();
+      markReportStale();
+      console.log('[GAS] fetchTasksFromGas: ' + updated + ' atualizadas, ' + added + ' novas');
+    }
+  }catch(e){ console.warn('[GAS] fetchTasksFromGas failed:', e); }
+}
+
+// Delete a single task from Apps Script (called on soft-delete and permanent delete)
+async function deleteTaskFromGas(id, month){
+  const cfg = loadGasConfig();
+  if(!cfg.url) return;
+  try{
+    await fetch(cfg.url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'delete_task', id, month: month||'' }),
+      mode:'no-cors',
+    });
+  }catch(e){ console.warn('[GAS] delete failed:', e); }
+}
 // ── Confirmações de entrega via e-mail ────
 async function fetchConfirmations(){
   const cfg = loadGasConfig();
   if(!cfg.url) return;
   try {
-    const res  = await fetch(cfg.url + '?action=get_confirmations');
-    const data = await res.json();
+    // Usa JSONP para evitar bloqueio de CORS (funciona de file:// e Google Drive)
+    const data = await fetchJsonp(cfg.url + '?action=get_confirmations');
     if(!data.confirmations || !data.confirmations.length) return;
     let applied = 0;
     data.confirmations.forEach(c => {
       const t = allTasks.find(x => String(x.id) === String(c.id));
-      if(!t || t.status === 'ENTREGUE' || t.status === 'ENTREGA ANTECIPADA') return;
+      if(!t) return;
+      // Se já foi entregue (qualquer tipo) e já tem data de entrega, não sobrescreve
+      const jaEntregue = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO');
+      if(jaEntregue && t.entrega && t.entrega!=='—') return;
       // Converte ISO → dd/MM/yyyy
       const d   = new Date(c.confirmedAt);
       const fmt = [String(d.getDate()).padStart(2,'0'), String(d.getMonth()+1).padStart(2,'0'), d.getFullYear()].join('/');
-      t.entrega  = fmt;
-      t.status   = 'ENTREGUE';
-      t._edited  = true;
+      t.entrega = fmt;
+      t.status  = calcStatus(t.prazo, fmt); // calcula corretamente (antecipada, no prazo ou com atraso)
+      t._edited = true; t._dateEdited = true;
       applied++;
     });
     if(applied){
@@ -4255,8 +4475,12 @@ function todayStr(){
 
 function getTasksDueToday(){
   const today = todayStr();
-  // Search all months, only tasks not yet delivered with email
-  return allTasks.filter(t => t.prazo === today && t.status !== 'ENTREGUE' && t.email && t.email.trim());
+  const delivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
+  return allTasks.filter(t =>
+    t.prazo === today &&
+    !delivered.has(t.status) &&
+    t.email && t.email.trim()
+  );
 }
 
 function updateNotifyBadge(){
@@ -4311,7 +4535,7 @@ function renderNotifyList(){
 
   list.innerHTML = notifyItems.map((item,idx) => {
     const t = item.task;
-    const isDelivered = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||item.delivered);
+    const isDelivered = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO'||item.delivered);
     const statusLabels = {pending:'Aguardando', sending:'Enviando…', ok:'Enviado ✓', err:'Erro ✗'};
     const statusClass  = item.delivered ? 'done' : item.status;
     const statusLabel  = item.delivered ? 'Entregue ✓' : statusLabels[item.status];
@@ -4340,17 +4564,17 @@ function markTaskDelivered(idx){
   const item = notifyItems[idx];
   if(!item) return;
   const today = todayStr();
-  const t = allTasks.find(x => x.id === item.task.id);
+  const t = allTasks.find(x => String(x.id) === String(item.task.id));
   if(t){
-    t.entrega  = today;
-    t.status   = 'ENTREGUE';
-    t._edited  = true;
+    t.entrega = today;
+    t.status  = calcStatus(t.prazo, today); // calcula corretamente: antecipada, no prazo ou com atraso
+    t._edited = true; t._dateEdited = true;
     saveOverrides();
     pushTaskToGas(t);
   }
-  // Also update the notifyItems task reference
+  // Atualiza também a referência no notifyItems
   item.task.entrega = today;
-  item.task.status  = 'ENTREGUE';
+  item.task.status  = calcStatus(item.task.prazo, today);
   item.delivered    = true;
   renderNotifyList();
   renderTimeline();
@@ -4360,34 +4584,49 @@ function markTaskDelivered(idx){
 }
 
 async function fireEmails(){
-  const cfg  = loadGasConfig();
-  const btn  = document.getElementById('btnFire');
-  const tasks = notifyItems.map(i => i.task);
+  const cfg = loadGasConfig();
+  if(!cfg.url){
+    showToast('⚠️ Configure o Google Apps Script primeiro (botão ⚙️)','');
+    return;
+  }
+
+  const btn = document.getElementById('btnFire');
+
+  // Só dispara tarefas pendentes (exclui as já marcadas como entregues no modal)
+  const delivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
+  const pending = notifyItems.filter(i => !i.delivered && !delivered.has(i.task.status));
+  if(!pending.length){
+    showToast('ℹ️ Nenhuma tarefa pendente para disparar','');
+    return;
+  }
+
+  const tasks = pending.map(i => i.task);
   btn.disabled = true;
   btn.innerHTML = '⏳ Enviando…';
 
-  // Marca todos como "enviando"
-  notifyItems.forEach(i => { i.status = 'sending'; i.msg = ''; });
+  // Marca pendentes como "enviando"
+  pending.forEach(i => { i.status = 'sending'; i.msg = ''; });
   renderNotifyList();
 
   try {
-    // Uma única chamada: GAS envia individuais + geral internamente
     await fetch(cfg.url, {
       method: 'POST',
       headers: {'Content-Type':'text/plain'},
       body: JSON.stringify({ action: 'send_all', tasks }),
       mode: 'no-cors',
     });
-    await new Promise(r => setTimeout(r, 1000));
-    notifyItems.forEach(i => { i.status = 'ok'; i.msg = 'Enviado'; });
+    // no-cors: não é possível ler a resposta, mas a requisição chega ao GAS
+    await new Promise(r => setTimeout(r, 1200));
+    pending.forEach(i => { i.status = 'ok'; i.msg = 'Enviado'; });
+    showToast(`✅ ${tasks.length} e-mail${tasks.length!==1?'s':''} disparado${tasks.length!==1?'s':''}`, 'green');
   } catch(err) {
-    notifyItems.forEach(i => { i.status = 'err'; i.msg = err.message; });
+    pending.forEach(i => { i.status = 'err'; i.msg = err.message; });
+    showToast('❌ Erro ao conectar com o Apps Script','');
   }
 
   renderNotifyList();
   btn.disabled = false;
-  btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Enviado`;
-  showToast(`✅ Disparo realizado — ${tasks.length} tarefa${tasks.length!==1?'s':''}`, 'green');
+  btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Disparar`;
   updateNotifyBadge();
 }
 

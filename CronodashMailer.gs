@@ -95,6 +95,16 @@ function handleGetConfirmations(callback) {
   return jsonpResponse({ ok: true, confirmations: result }, callback);
 }
 
+// Formata valor de célula de data para DD/MM/YYYY (suporta Date object ou string)
+function fmtDateBR(val) {
+  if (!val || val === '-' || val === '—') return '—';
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, 'America/Sao_Paulo', 'dd/MM/yyyy');
+  }
+  var s = String(val).trim();
+  return (s === '' || s === '-') ? '—' : s;
+}
+
 // ── GET_TASKS — Lê planilha e retorna tarefas ao dashboard ────
 function handleGetTasks(callback) {
   if (!SPREADSHEET_ID) {
@@ -125,8 +135,8 @@ function handleGetTasks(callback) {
     var iEmail   = col(['Email','E-mail','email']);
     var iPrazo   = col(['Prazo','prazo']);
     var iEntrega = col(['Entrega','entrega']);
-    var iSt      = col(['Status','status']);
     var iMes     = col(['Mes','Mês','month']);
+    // Status NÃO é lido do Sheets — o dashboard sempre calcula localmente
 
     var tasks = [];
     for (var r = 1; r < data.length; r++) {
@@ -137,12 +147,11 @@ function handleGetTasks(callback) {
         id:      (iID >= 0 && row[iID] !== '') ? Number(row[iID]) : r,
         name:    nome,
         note:    iNota    >= 0 ? String(row[iNota]    || '') : '',
-        resp:    iResp    >= 0 ? String(row[iResp]    || '-') : '-',
-        dest:    iDest    >= 0 ? String(row[iDest]    || '-') : '-',
+        resp:    iResp    >= 0 ? String(row[iResp]    || '—') : '—',
+        dest:    iDest    >= 0 ? String(row[iDest]    || '—') : '—',
         email:   iEmail   >= 0 ? String(row[iEmail]   || '') : '',
-        prazo:   iPrazo   >= 0 ? String(row[iPrazo]   || '-') : '-',
-        entrega: iEntrega >= 0 ? String(row[iEntrega] || '-') : '-',
-        status:  iSt      >= 0 ? String(row[iSt]      || 'NO PRAZO') : 'NO PRAZO',
+        prazo:   iPrazo   >= 0 ? fmtDateBR(row[iPrazo])   : '—',
+        entrega: iEntrega >= 0 ? fmtDateBR(row[iEntrega]) : '—',
         month:   iMes     >= 0 ? String(row[iMes]     || '') : '',
       });
     }
@@ -418,10 +427,12 @@ function handleDeleteTask(body) {
     deleteRowById(sheetTodos, id);
 
     // Remove da aba do mês
-    var mesLabel = MONTH_SHEET[month] || '';
+    var mesLabel = month ? (MONTH_SHEET[month] || '') : '';
     if (mesLabel) {
       var sheetMes = ss.getSheetByName(mesLabel);
       if (sheetMes) deleteRowById(sheetMes, id);
+    } else if (month) {
+      Logger.log('WARNING: Mês inválido "' + month + '" para tarefa id=' + id);
     }
 
     Logger.log('delete_task OK: id=' + id + ' mes=' + month);
@@ -519,21 +530,27 @@ var SHEET_COLS = ['ID','Nome','Nota','Responsavel','Destinatario','Email','Prazo
 
 // Mapa de chave de mês → nome da aba
 var MONTH_SHEET = {
-  'jan':'Janeiro','fev':'Fevereiro','mar':'Marco','abr':'Abril',
+  'jan':'Janeiro','fev':'Fevereiro','mar':'Março','abr':'Abril',
   'mai':'Maio','jun':'Junho','jul':'Julho','ago':'Agosto',
   'set':'Setembro','out':'Outubro','nov':'Novembro','dez':'Dezembro'
 };
 
 // Upsert de uma linha em uma aba pelo ID (col 0)
+// Aplica formato @text nas colunas de data (7=Prazo, 8=Entrega) ANTES de escrever
+// para impedir que o Sheets converta automaticamente DD/MM/YYYY para Date object
 function upsertRow(sheet, id, row) {
   var data  = sheet.getDataRange().getValues();
   for (var r = 1; r < data.length; r++) {
     if (String(data[r][0]) === String(id)) {
+      sheet.getRange(r + 1, 7, 1, 2).setNumberFormat('@');
       sheet.getRange(r + 1, 1, 1, SHEET_COLS.length).setValues([row]);
       return;
     }
   }
-  sheet.appendRow(row);
+  // Nova linha: pré-formata antes de appendRow
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 7, 1, 2).setNumberFormat('@');
+  sheet.getRange(newRow, 1, 1, SHEET_COLS.length).setValues([row]);
 }
 
 // Remove linha de uma aba pelo ID (col 0)
@@ -547,35 +564,43 @@ function deleteRowById(sheet, id) {
   }
 }
 
+// Helper: garante que a aba existe, tem cabeçalho e que as colunas de data
+// estão sempre no formato @text (impede auto-conversão de DD/MM/YYYY pelo Sheets)
+function ensureSheet(ss, name) {
+  var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(SHEET_COLS);
+    sh.getRange(1, 1, 1, SHEET_COLS.length).setFontWeight('bold');
+  }
+  // Aplica @text em toda a coluna de Prazo (7) e Entrega (8) — novo e existente
+  var maxRows = sh.getMaxRows();
+  if (maxRows > 1) sh.getRange(2, 7, maxRows - 1, 2).setNumberFormat('@');
+  return sh;
+}
+
 function logTasksToSheet(tasks) {
   if (!SPREADSHEET_ID) return;
   var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
   var now = new Date().toISOString();
 
+  // Prepara abas necessárias UMA vez antes de iterar
+  var sheetTodos = ensureSheet(ss, 'Todos');
+  var mesSheets  = {};
+
   tasks.forEach(function(t) {
+    var mesLabel = t.month ? (MONTH_SHEET[t.month] || '') : '';
+    if (mesLabel && !mesSheets[mesLabel]) {
+      mesSheets[mesLabel] = ensureSheet(ss, mesLabel);
+    }
+
     var row = [
-      t.id, t.name||'', t.note||'', t.resp||'-', t.dest||'-',
-      t.email||'', t.prazo||'-', t.entrega||'-', t.status||'NO PRAZO', t.month||'', now
+      t.id, t.name||'', t.note||'', t.resp||'—', t.dest||'—',
+      t.email||'', t.prazo||'—', t.entrega||'—', t.status||'NO PRAZO', t.month||'', now
     ];
 
-    // Aba Todos
-    var sheetTodos = ss.getSheetByName('Todos') || ss.insertSheet('Todos');
-    if (sheetTodos.getLastRow() === 0) {
-      sheetTodos.appendRow(SHEET_COLS);
-      sheetTodos.getRange(1,1,1,SHEET_COLS.length).setFontWeight('bold');
-    }
     upsertRow(sheetTodos, t.id, row);
-
-    // Aba do mês correspondente
-    var mesLabel = MONTH_SHEET[t.month] || '';
-    if (mesLabel) {
-      var sheetMes = ss.getSheetByName(mesLabel);
-      if (!sheetMes) {
-        sheetMes = ss.insertSheet(mesLabel);
-        sheetMes.appendRow(SHEET_COLS);
-        sheetMes.getRange(1,1,1,SHEET_COLS.length).setFontWeight('bold');
-      }
-      upsertRow(sheetMes, t.id, row);
+    if (mesLabel && mesSheets[mesLabel]) {
+      upsertRow(mesSheets[mesLabel], t.id, row);
     }
   });
 }
@@ -596,7 +621,7 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
 
   var rows = tasks.map(function(t, idx) {
     var st          = statusMap[t.status] || { color:'#3a5080', bg:'#f0f6ff', label: t.status || '—' };
-    var isDelivered = (t.status === 'ENTREGUE' || t.status === 'ENTREGA ANTECIPADA');
+    var isDelivered = (t.status === 'ENTREGUE' || t.status === 'ENTREGA ANTECIPADA' || t.status === 'ENTREGUE COM ATRASO');
     var confirmLink = (showConfirm && gasUrl && !isDelivered)
       ? gasUrl + '?action=confirm&id=' + encodeURIComponent(t.id) + '&prazo=' + encodeURIComponent(t.prazo || '') + '&name=' + encodeURIComponent(t.name || '')
       : '';
@@ -679,7 +704,8 @@ function esc(s) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ── TESTE DE ACESSO À PLANILHA ────────────────────────────────
