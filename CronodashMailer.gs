@@ -338,93 +338,131 @@ function handleGetTasks(callback) {
 
 // viewOnly=true → página de status sem ação de confirmação (link "Ver minhas entregas")
 function buildConfirmationPage(name, prazo, alreadyDone, resp, allRespTasks, viewOnly) {
-  var date = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
-  var msg;
-  if (viewOnly) {
-    msg = alreadyDone
-      ? 'Esta tarefa já foi confirmada.'
-      : 'Esta tarefa ainda <strong>não foi confirmada</strong>. Clique em <em>✅ Confirmar</em> no e-mail para registrar a entrega.';
-  } else {
-    msg = alreadyDone
-      ? 'Esta entrega já havia sido confirmada anteriormente.'
-      : 'Confirmação registrada em <strong>' + date + '</strong>. O dashboard será atualizado automaticamente.';
-  }
+  var now  = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
 
-  // ── Painel de entregas do responsável ──
-  var painelHtml = '';
-  if (allRespTasks && allRespTasks.length > 0) {
-    var taskItems = allRespTasks.map(function(t) {
-      var isCurrent = t.isCurrent;
-      var conf      = t.confirmed;
-      var statusBg    = conf ? '#e6f5ee' : '#fff8ec';
-      var statusColor = conf ? '#1a7a4a' : '#b45300';
-      var statusIcon  = conf ? '✅' : '⏳';
-      var statusLabel = conf
-        ? 'Confirmado' + (t.confirmedAt ? ' em ' + t.confirmedAt : '')
-        : 'Pendente';
-      return '<div style="display:flex;align-items:flex-start;gap:12px;padding:11px 14px;'
-        + 'border-radius:10px;margin-bottom:8px;'
-        + 'background:' + (isCurrent ? '#f0fbf4' : '#f8faff') + ';'
-        + 'border:' + (isCurrent ? '2px solid #1a7a4a' : '1px solid #dce8f5') + '">'
-        + '<div style="font-size:20px;line-height:1;margin-top:1px">' + statusIcon + '</div>'
-        + '<div style="flex:1;min-width:0">'
-        +   '<div style="font-size:13px;font-weight:' + (isCurrent ? '700' : '500') + ';color:#0a1e45;word-break:break-word">'
-        +     esc(t.name)
-        +     (isCurrent && !viewOnly && !alreadyDone ? '&nbsp;<span style="background:#1a7a4a;color:#fff;font-size:10px;padding:1px 8px;border-radius:99px;vertical-align:middle">confirmada agora</span>' : '')
-        +   '</div>'
-        +   (t.prazo && t.prazo !== '—' ? '<div style="font-size:11px;color:#8096b8;margin-top:3px">📅 Prazo: ' + esc(t.prazo) + '</div>' : '')
-        + '</div>'
-        + '<div style="flex-shrink:0;text-align:right">'
-        +   '<span style="display:inline-block;background:' + statusBg + ';color:' + statusColor + ';border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">'
-        +     statusLabel
-        +   '</span>'
-        + '</div>'
-        + '</div>';
-    }).join('');
-
-    var totalConf = allRespTasks.filter(function(t){ return t.confirmed; }).length;
-    var totalPend = allRespTasks.length - totalConf;
-
-    painelHtml = '<div style="margin-top:28px;text-align:left">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-      +   '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:#8096b8">📋 Suas Entregas — ' + esc(resp) + '</div>'
-      +   '<div style="font-size:11px;color:#8096b8">'
-      +     '<span style="color:#1a7a4a;font-weight:700">' + totalConf + ' confirmada' + (totalConf !== 1 ? 's' : '') + '</span>'
-      +     (totalPend > 0 ? ' &nbsp;·&nbsp; <span style="color:#b45300;font-weight:700">' + totalPend + ' pendente' + (totalPend !== 1 ? 's' : '') + '</span>' : '')
+  // ── Bloco de confirmação (modo confirmar) ──
+  var confirmBlock = '';
+  if (!viewOnly) {
+    var confirmBg  = alreadyDone ? '#fff8ec' : '#e8f5ee';
+    var confirmClr = alreadyDone ? '#b45300' : '#1a7a4a';
+    var confirmIcon = alreadyDone ? '⚠️' : '✅';
+    var confirmMsg  = alreadyDone
+      ? 'Esta entrega já havia sido registrada anteriormente.'
+      : 'Confirmação registrada em <strong>' + now + '</strong>.<br>O dashboard será atualizado automaticamente.';
+    confirmBlock =
+      '<div style="background:' + confirmBg + ';border-radius:10px;padding:16px 20px;margin-bottom:20px">'
+      + '<div style="display:flex;align-items:flex-start;gap:12px">'
+      +   '<div style="font-size:28px;line-height:1">' + confirmIcon + '</div>'
+      +   '<div style="flex:1">'
+      +     '<div style="font-size:14px;font-weight:700;color:' + confirmClr + ';margin-bottom:4px">'
+      +       (alreadyDone ? 'Já confirmado' : 'Entrega confirmada!')
+      +     '</div>'
+      +     '<div style="font-size:13px;font-weight:700;color:#0a1e45;margin-bottom:6px">' + esc(name) + '</div>'
+      +     (prazo ? '<div style="font-size:12px;color:#8096b8">📅 Prazo: ' + esc(prazo) + '</div>' : '')
+      +     '<div style="font-size:12px;color:' + confirmClr + ';margin-top:6px">' + confirmMsg + '</div>'
       +   '</div>'
       + '</div>'
-      + taskItems
       + '</div>';
   }
+
+  // ── Tabela de tarefas do responsável ──
+  var totalConf = 0, totalPend = 0;
+  var tableRows = '';
+  if (allRespTasks && allRespTasks.length > 0) {
+    totalConf = allRespTasks.filter(function(t){ return t.confirmed; }).length;
+    totalPend = allRespTasks.length - totalConf;
+
+    tableRows = allRespTasks.map(function(t, idx) {
+      var isCurrent  = t.isCurrent;
+      var conf       = t.confirmed;
+      var rowBg      = isCurrent ? '#f0fbf4' : (idx % 2 === 0 ? '#ffffff' : '#f7faff');
+      var rowBorder  = isCurrent ? '2px solid #1a7a4a' : 'none';
+      var statusBg   = conf ? '#e6f5ee' : '#fff8ec';
+      var statusClr  = conf ? '#1a7a4a' : '#b45300';
+      var statusIcon = conf ? '✅' : '⏳';
+      var statusTxt  = conf
+        ? ('Entregue' + (t.confirmedAt ? '<br><span style="font-size:10px;font-weight:400">' + t.confirmedAt + '</span>' : ''))
+        : 'Pendente';
+      var newBadge = (isCurrent && !viewOnly && !alreadyDone)
+        ? '&nbsp;<span style="background:#1a7a4a;color:#fff;font-size:9px;padding:1px 7px;border-radius:99px;vertical-align:middle;white-space:nowrap">agora</span>'
+        : '';
+      return '<tr style="background:' + rowBg + ';outline:' + rowBorder + '">'
+        + '<td style="padding:10px 14px;font-size:13px;font-weight:' + (isCurrent ? '700' : '500') + ';color:#0a1e45;word-break:break-word">'
+        +   esc(t.name) + newBadge
+        + '</td>'
+        + '<td style="padding:10px 14px;font-size:12px;color:#3a5080;white-space:nowrap;text-align:center">'
+        +   (t.prazo && t.prazo !== '—' ? t.prazo : '—')
+        + '</td>'
+        + '<td style="padding:10px 14px;text-align:center">'
+        +   '<span style="display:inline-flex;align-items:center;gap:4px;background:' + statusBg + ';color:' + statusClr + ';border-radius:99px;padding:4px 12px;font-size:11px;font-weight:700;white-space:nowrap">'
+        +     statusIcon + '&nbsp;' + statusTxt
+        +   '</span>'
+        + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  var hasPanel = tableRows !== '';
+  var summaryHtml = '';
+  if (hasPanel) {
+    summaryHtml =
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:#8096b8">'
+      +   '📋 Suas tarefas de hoje e em atraso — <strong style="color:#0a1e45">' + esc(resp) + '</strong>'
+      + '</div>'
+      + '<div style="font-size:11px;color:#8096b8">'
+      +   '<span style="color:#1a7a4a;font-weight:700">' + totalConf + ' entregue' + (totalConf !== 1 ? 's' : '') + '</span>'
+      +   (totalPend > 0 ? ' &nbsp;·&nbsp; <span style="color:#b45300;font-weight:700">' + totalPend + ' pendente' + (totalPend !== 1 ? 's' : '') + '</span>' : '')
+      + '</div>'
+      + '</div>'
+      + '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #dce8f5;border-radius:10px;overflow:hidden">'
+      + '<thead>'
+      + '<tr style="background:#1352b8">'
+      + '<th style="padding:9px 14px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Tarefa</th>'
+      + '<th style="padding:9px 14px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;width:100px">Prazo</th>'
+      + '<th style="padding:9px 14px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.5px;width:130px">Status</th>'
+      + '</tr>'
+      + '</thead>'
+      + '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+  } else if (!viewOnly) {
+    // nenhuma tarefa no painel mas estamos em modo confirmar — não mostra tabela vazia
+    summaryHtml = '';
+  } else {
+    summaryHtml = '<div style="text-align:center;padding:28px;color:#8096b8;font-size:13px">Nenhuma tarefa com prazo hoje ou em atraso recente.</div>';
+  }
+
+  var pageTitle = viewOnly ? 'Minhas Entregas' : 'Entrega Confirmada!';
+  var pageSubtitle = viewOnly ? 'Acompanhamento de Entregas' : 'Confirmação de Entrega';
 
   return '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     + '<meta name="viewport" content="width=device-width,initial-scale=1">'
     + '<style>'
     + '*{box-sizing:border-box;margin:0;padding:0}'
-    + 'body{font-family:Arial,sans-serif;background:#f0f6ff;display:flex;justify-content:center;min-height:100vh;padding:20px}'
-    + '.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(13,45,110,.13);max-width:560px;width:100%;overflow:hidden;align-self:flex-start;margin-top:20px}'
-    + '.header{background:linear-gradient(135deg,#0d2d6e,#1352b8);padding:24px 28px;text-align:center}'
-    + '.header h1{color:#fff;font-size:17px;font-weight:700;margin-bottom:3px}'
-    + '.header p{color:rgba(255,255,255,.65);font-size:12px}'
-    + '.body{padding:28px}'
-    + '.icon{font-size:52px;text-align:center;margin-bottom:12px}'
-    + '.title{font-size:19px;font-weight:700;color:#1a7a4a;text-align:center;margin-bottom:6px}'
-    + '.task-box{font-size:14px;color:#0a1e45;font-weight:600;background:#f0f6ff;border-radius:8px;padding:10px 16px;margin:10px 0;text-align:center}'
-    + '.info{font-size:13px;color:#3a5080;text-align:center;margin-top:10px;line-height:1.6}'
-    + '.prazo{font-size:12px;color:#8096b8;text-align:center;margin-top:5px}'
-    + '.footer{padding:14px 28px;background:#f7f9fc;border-top:1px solid #d6e3f5;text-align:center;font-size:11px;color:#8096b8}'
+    + 'body{font-family:Arial,sans-serif;background:#eef4fb;display:flex;justify-content:center;min-height:100vh;padding:24px 16px}'
+    + '.wrap{max-width:780px;width:100%;align-self:flex-start}'
+    + '.card{background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(13,45,110,.13);overflow:hidden;margin-bottom:16px}'
+    + '.hdr{background:linear-gradient(135deg,#0d2d6e,#1352b8);padding:22px 28px;display:flex;align-items:center;gap:16px}'
+    + '.hdr-text h1{color:#fff;font-size:17px;font-weight:700;margin-bottom:2px}'
+    + '.hdr-text p{color:rgba(255,255,255,.6);font-size:12px}'
+    + '.hdr-icon{font-size:34px;line-height:1;flex-shrink:0}'
+    + '.body{padding:24px 28px}'
+    + '.footer{padding:12px 28px;background:#f4f8fd;border-top:1px solid #dce8f5;text-align:center;font-size:11px;color:#8096b8}'
+    + 'table{border-collapse:collapse}'
+    + 'tr:last-child td{border-bottom:none!important}'
+    + 'td{border-bottom:1px solid #eaf2fc}'
+    + '@media(max-width:600px){.hdr{padding:16px 18px}.body{padding:16px 18px}td,th{padding:8px 10px!important}}'
     + '</style></head><body>'
+    + '<div class="wrap">'
     + '<div class="card">'
-    + '<div class="header"><h1>Cronograma Mensal · Mabu Hospitalidade</h1><p>' + (viewOnly ? 'Acompanhamento de Entregas' : 'Confirmação de Entrega') + '</p></div>'
-    + '<div class="body">'
-    + '<div class="icon">' + (viewOnly ? '📋' : '✅') + '</div>'
-    + '<div class="title">' + (viewOnly ? 'Minhas Entregas' : 'Entrega Confirmada!') + '</div>'
-    + (name ? '<div class="task-box">' + esc(name) + '</div>' : '')
-    + (prazo ? '<div class="prazo">📅 Prazo: ' + prazo + '</div>' : '')
-    + '<div class="info">' + msg + '</div>'
-    + painelHtml
+    +   '<div class="hdr"><div class="hdr-icon">' + (viewOnly ? '📋' : '✅') + '</div>'
+    +   '<div class="hdr-text"><h1>' + pageTitle + '</h1><p>Cronograma Mensal · Mabu Hospitalidade &amp; Entretenimento · ' + pageSubtitle + '</p></div></div>'
+    +   '<div class="body">'
+    +     confirmBlock
+    +     summaryHtml
+    +   '</div>'
+    +   '<div class="footer">Mensagem automática · Cronograma Mensal · Mabu Hospitalidade</div>'
     + '</div>'
-    + '<div class="footer">Cronograma Mensal · Mabu Hospitalidade &amp; Entretenimento</div>'
     + '</div></body></html>';
 }
 
