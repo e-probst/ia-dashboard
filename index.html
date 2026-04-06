@@ -269,6 +269,19 @@
   .notify-status.done{background:var(--green-bg);color:var(--green);}
 
   .notify-empty{text-align:center;padding:52px 20px;color:var(--text-muted);}
+  .notify-group{border-bottom:1px solid var(--border-light);}
+  .notify-group:last-child{border-bottom:none;}
+  .notify-group-header{display:flex;align-items:center;gap:10px;padding:10px 24px;background:var(--blue-ghost);cursor:default;}
+  .notify-group-email{font-size:12px;font-weight:700;color:var(--blue-main);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .notify-group-meta{font-size:11px;color:var(--text-muted);white-space:nowrap;}
+  .notify-task-row{display:flex;align-items:center;gap:10px;padding:9px 24px 9px 36px;border-bottom:1px solid #f0f4fb;}
+  .notify-task-row:last-child{border-bottom:none;}
+  .notify-task-row.done-row{opacity:.5;}
+  .notify-task-info{flex:1;min-width:0;}
+  .notify-task-name{font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+  .notify-task-meta{font-size:10px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .tag-atrasado{color:#c0182c;font-weight:700;}
+  .tag-hoje{color:#1352b8;font-weight:700;}
   .notify-footer{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-top:1px solid var(--border-light);background:var(--blue-ghost);border-radius:0 0 16px 16px;flex-shrink:0;gap:12px;}
   .notify-footer-info{font-size:12px;color:var(--text-muted);font-weight:600;}
   .btn-fire{padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(135deg,#1a7a4a,#2da862);font-family:"Nunito",sans-serif;font-size:13px;font-weight:700;color:white;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(26,122,74,.3);display:flex;align-items:center;gap:8px;}
@@ -452,7 +465,7 @@
   <div class="controls">
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
-      <input class="search-input" id="searchInput" type="text" placeholder="Buscar atividade, responsável ou destinatário…" oninput="applyFilters()">
+      <input class="search-input" id="searchInput" type="text" placeholder="Buscar atividade, nota, responsável ou destinatário…" oninput="applyFilters()">
     </div>
     <select class="filter-select" id="filterStatus" onchange="applyFilters()">
       <option value="">Todos os status</option>
@@ -583,7 +596,7 @@
         <div class="form-group"><label class="form-label">Responsável</label><input class="form-input" id="fResp" type="text" placeholder="Nome do responsável"></div>
         <div class="form-group"><label class="form-label">Destinatário</label><input class="form-input" id="fDest" type="text" placeholder="Para quem será enviado"></div>
       </div>
-      <div class="form-row single"><div class="form-group"><label class="form-label">✉ E-mail do Responsável</label><input class="form-input" id="fEmail" type="email" placeholder="email@mabu.com.br"></div></div>
+      <div class="form-row single"><div class="form-group"><label class="form-label">✉ E-mail do Responsável <span style="font-weight:400;opacity:.6;font-size:10px">(vazio = e.probst@mymabu.com.br)</span></label><input class="form-input" id="fEmail" type="email" placeholder="Deixe vazio para usar e-mail padrão"></div></div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Prazo</label><input class="form-input" id="fPrazo" type="date" onchange="previewStatus()"></div>
         <div class="form-group"><label class="form-label">Data de Entrega</label><input class="form-input" id="fEntrega" type="date" onchange="previewStatus()"></div>
@@ -1092,29 +1105,29 @@ const RAW_MAR = [
   {name:"RDCI Blue Park",note:"",resp:"Juliana dos Santos Rodrigues",dest:"Cristiano Almeida",prazo:"01/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
   {name:"RDCI MTR",note:"",resp:"Juliana dos Santos Rodrigues",dest:"Cristiano Almeida",prazo:"01/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
   {name:"Consumos Internos MCB",note:"",resp:"Valdineia da Silva Rodrigues Ferrao",dest:"Cristiano Almeida",prazo:"01/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Bloqueio da Unidade Thermas",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Bloqueio da Unidade Blue Park",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Bloqueio da Unidade Prestige Inc",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Bloqueio da Unidade Cond Prestige",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Bloqueio da Unidade Cond Mabu",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Entrega das conciliações bancárias e extratos - Thermas",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Entrega das conciliações bancárias e extratos - Blue Park",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Entrega das conciliações bancárias e extratos - Prestige Inc",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Entrega das conciliações bancárias e extratos - Cond Prestige",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Entrega das conciliações bancárias e extratos - Cond Mabu",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Extrato de Aplicações Finaneiras - Business",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Extrato de Aplicações Finaneiras - Thermas",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Extrato de Aplicações Finaneiras - Blue Park",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Extrato de Aplicações Finaneiras - Prestige Inc",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Extrato de Aplicações Finaneiras - Cond Prestige",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"FISS - Thermas",note:"",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"FISS - Blue Park",note:"",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"FISS - Prestige Inc",note:"",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"FISS - Cond Prestige",note:"",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"FISS - Cond Mabu",note:"📝 NÃO HOUVE ESSE MÊS",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Encerramento ISSQN - Business",note:"",resp:"Faturamento",dest:"Time Fiscal",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Encerramento ISSQN - SCP Tropical",note:"",resp:"—",dest:"Time Fiscal",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
-  {name:"Encerramento ISSQN - SCP Prestige",note:"",resp:"—",dest:"Time Fiscal",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
+  {name:"Bloqueio da Unidade Thermas",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Bloqueio da Unidade Blue Park",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Bloqueio da Unidade Prestige Inc",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Bloqueio da Unidade Cond Prestige",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Bloqueio da Unidade Cond Mabu",note:"",resp:"SCM Fiscal/Contábil",dest:"—",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Entrega das conciliações bancárias e extratos - Thermas",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Entrega das conciliações bancárias e extratos - Blue Park",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Entrega das conciliações bancárias e extratos - Prestige Inc",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Entrega das conciliações bancárias e extratos - Cond Prestige",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Entrega das conciliações bancárias e extratos - Cond Mabu",note:"📝 Entrega até 9h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Extrato de Aplicações Finaneiras - Business",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Extrato de Aplicações Finaneiras - Thermas",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Extrato de Aplicações Finaneiras - Blue Park",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Extrato de Aplicações Finaneiras - Prestige Inc",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Extrato de Aplicações Finaneiras - Cond Prestige",note:"📝 Entrega até 12h",resp:"Tesouraria",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"FISS - Thermas",note:"",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"FISS - Blue Park",note:"",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"FISS - Prestige Inc",note:"",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"FISS - Cond Prestige",note:"",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"FISS - Cond Mabu",note:"📝 NÃO HOUVE ESSE MÊS",resp:"DHO",dest:"SCM Fiscal/Contábil",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Encerramento ISSQN - Business",note:"",resp:"Faturamento",dest:"Time Fiscal",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Encerramento ISSQN - SCP Tropical",note:"",resp:"—",dest:"Time Fiscal",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
+  {name:"Encerramento ISSQN - SCP Prestige",note:"",resp:"—",dest:"Time Fiscal",prazo:"02/04/2026",entrega:"—",status:"NO PRAZO",email:"e.probst@mymabu.com.br",month:"mar"},
   {name:"Entrega Indicadores de Performance",note:"",resp:"Cezar Junior Almeida da Silva",dest:"Cristiano Almeida",prazo:"06/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
   {name:"Entrega Vendas, Cancelamentos e Encaixe Prestige MVC",note:"",resp:"Rafael Ramirez",dest:"Cristiano Almeida",prazo:"06/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
   {name:"Entrega Número de Colaboradores por Unidade",note:"",resp:"Fernanda Lima Pegorini",dest:"Cristiano Almeida",prazo:"06/04/2026",entrega:"—",status:"NO PRAZO",month:"mar"},
@@ -3449,7 +3462,7 @@ const RAW_DEZ = [
 const MONTHS = [
   {key:'jan', label:'Janeiro 2026',   short:'Jan', raw: RAW_JAN},
   {key:'fev', label:'Fevereiro 2026', short:'Fev', raw: RAW_FEV},
-  {key:'mar', label:'Março 2026',     short:'Mar', raw: RAW_MAR, current: true},
+  {key:'mar', label:'Março 2026',     short:'Mar', raw: RAW_MAR},
   {key:'abr', label:'Abril 2026',     short:'Abr', raw: RAW_ABR},
   {key:'mai', label:'Maio 2026',      short:'Mai', raw: RAW_MAI},
   {key:'jun', label:'Junho 2026',     short:'Jun', raw: RAW_JUN},
@@ -3461,6 +3474,9 @@ const MONTHS = [
   {key:'dez', label:'Dezembro 2026',  short:'Dez', raw: RAW_DEZ},
 ];
 
+// Marca o mês atual dinamicamente com base na data de hoje
+(function(){ const m=MONTHS[new Date().getMonth()]; if(m) m.current=true; })();
+
 let nextId = 1;
 // Build global tasks array with ids
 const allTasks = [];
@@ -3470,7 +3486,8 @@ MONTHS.forEach(m => {
   });
 });
 
-let activeMth = 'mar';
+const _curMth = (MONTHS.find(x=>x.current)||MONTHS[0]).key;
+let activeMth = _curMth;
 let tasks = [];
 let filtered = [], sortKey = 'prazo', sortDir = 1, page = 1;
 let showAll = false; const PER_DEFAULT = 50; let PER = PER_DEFAULT;
@@ -3481,7 +3498,7 @@ function init(){
   loadOverrides();
   applyBizDayAdjustments();
   recalcAllStatuses();
-  selectMonth('mar');
+  selectMonth(_curMth);
   updateConfigBtnState();
   updateNotifyBadge();
   renderHolidayBanner();
@@ -3543,7 +3560,7 @@ function selectMonth(key){
 function parseBR(s){ if(!s||s==='—')return null; const[d,m,y]=s.split('/'); const dt=new Date(+y,+m-1,+d); if(!dt||isNaN(dt)||dt.getFullYear()!==+y||dt.getMonth()!==+m-1||dt.getDate()!==+d)return null; return dt; }
 function fromInputDate(v){ if(!v)return'—'; const[y,m,d]=v.split('-'); return `${d}/${m}/${y}`; }
 function toInputDate(v){ if(!v||v==='—')return''; const[d,m,y]=v.split('/'); return `${y}-${m}-${d}`; }
-function ini(n){ if(!n||n==='—')return'?'; return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function ini(n){ if(!n||n==='—')return'?'; const w=n.trim().split(/\s+/); return w.length===1?w[0].slice(0,2).toUpperCase():w.slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
 function bClass(s){
   if(s==='ENTREGUE')return'entregue';
   if(s==='NO PRAZO')return'no-prazo';
@@ -3568,7 +3585,7 @@ function applyFilters(){
   const st = document.getElementById('filterStatus').value;
   const re = document.getElementById('filterResp').value;
   filtered = tasks.filter(t =>
-    (!q||t.name.toLowerCase().includes(q)||t.resp.toLowerCase().includes(q)||t.dest.toLowerCase().includes(q))&&
+    (!q||t.name.toLowerCase().includes(q)||(t.note||'').toLowerCase().includes(q)||t.resp.toLowerCase().includes(q)||t.dest.toLowerCase().includes(q))&&
     (!st||t.status===st)&&(!re||t.resp===re));
   filtered.sort((a,b)=>{
     if(sortKey==='prazo'){const da=parseBR(a.prazo),db=parseBR(b.prazo);if(!da&&!db)return 0;if(!da)return 1;if(!db)return -1;return(da-db)*sortDir;}
@@ -3632,10 +3649,10 @@ const FERIADOS_2026 = {
 
 
 function getHolidaysInMonth(monthKey){
-  const tasksInMonth = allTasks.filter(t=>t.month===monthKey);
-  const prazos = [...new Set(tasksInMonth.map(t=>t.prazo).filter(Boolean))];
+  const mNum = MONTHS.findIndex(x=>x.key===monthKey) + 1; // 1-indexed
+  if(mNum < 1) return [];
   return Object.entries(FERIADOS_2026)
-    .filter(([date])=>prazos.includes(date))
+    .filter(([date])=>parseInt(date.split('/')[1],10)===mNum)
     .map(([date,name])=>({date,name}));
 }
 
@@ -3679,15 +3696,15 @@ function nextBizDay(d){
 
 // Adjust a date to a valid business day:
 //   Saturday       → previous Friday (or earlier if also holiday)
-//   Sunday         → next Monday (or later if also holiday)
-//   Weekday holiday→ next business day
+//   Sunday         → previous Friday (or earlier if also holiday)
+//   Weekday holiday→ previous business day (tarefa deve ser entregue ANTES do feriado)
 //   Valid biz day  → unchanged
 function nearestBizDay(d){
   const day = new Date(d); day.setHours(0,0,0,0);
   const wd = day.getDay();
   if(wd===6) return prevBizDay(day);  // Sat → prev biz
-  if(wd===0) return nextBizDay(day);  // Sun → next biz
-  if(!isBizDay(day)) return nextBizDay(day); // holiday weekday → next biz
+  if(wd===0) return prevBizDay(day);  // Sun → prev biz (ex: Páscoa → sexta útil anterior)
+  if(!isBizDay(day)) return prevBizDay(day); // feriado em dia útil → dia útil anterior
   return day;
 }
 
@@ -3724,7 +3741,7 @@ function calcStatus(prazo, entrega) {
   if (entrega && entrega !== '—') {
     const dPrazo   = parseBR(prazo);
     const dEntrega = parseBR(entrega);
-    if (!dPrazo || !dEntrega) return 'ENTREGUE';
+    if (!dPrazo || !dEntrega) return 'NO PRAZO';
     if (dEntrega < dPrazo)  return 'ENTREGA ANTECIPADA';
     if (dEntrega.getTime() === dPrazo.getTime()) return 'ENTREGUE';
     return 'ENTREGUE COM ATRASO';
@@ -3741,9 +3758,9 @@ function recalcAllStatuses() {
   allTasks.forEach(t => {
     const prev = t.status;
     if(t._edited) {
-      // Tarefas com status de entrega correto: não recalcula
+      // Tarefas com status de entrega correto: não recalcula, mas verifica mudança
       const entregue = t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO';
-      if(entregue) return;
+      if(entregue) { if(t.status !== prev) changed = true; return; }
       // Tem data de entrega mas status ainda não reflete: recalcula (dados legados ou edge-case)
       if(t.entrega && t.entrega !== '—') {
         t.status = calcStatus(t.prazo, t.entrega);
@@ -3787,7 +3804,8 @@ function saveTask(){
                : manualStatus;
   if(editingId){
     const t=allTasks.find(x=>String(x.id)===String(editingId));
-    if(t)Object.assign(t,{name,note,resp,dest,email,prazo,entrega,status,_edited:true,_dateEdited:true});
+    if(!t){showToast('❌ Tarefa não encontrada','');return;}
+    Object.assign(t,{name,note,resp,dest,email,prazo,entrega,status,_edited:true,_dateEdited:true});
     showToast('✅ Tarefa atualizada!','green');
   } else {
     const newT={id:nextId++,name,note,resp,dest,email,prazo,entrega,status,month:activeMth,_edited:true,_new:true,_dateEdited:true};
@@ -4102,6 +4120,7 @@ function loadOverrides(){
 }
 
 const GAS_KEY = 'mabu_gas_config';
+const DEFAULT_EMAIL = 'e.probst@mymabu.com.br'; // e-mail padrão quando a tarefa não tem e-mail cadastrado
 const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec';
 
 function loadGasConfig(){
@@ -4265,7 +4284,7 @@ function testGasConnection(){
     // Script tag failed — CORS blocked, but that's expected for file://
     // The sync itself uses no-cors POST which works fine
     res.style.cssText='display:block;background:var(--green-bg);color:var(--green);padding:8px 12px;border-radius:7px;font-size:12px;';
-    res.innerHTML = '✅ URL registrada! Para confirmar que o Apps Script está ativo, <a href="' + url + '" target="_blank" style="color:var(--green);font-weight:700;">abra a URL nesta aba ↗</a> e verifique se retorna ok:true no JSON.';
+    res.innerHTML = '✅ URL registrada! Para confirmar que o Apps Script está ativo, <a href="' + esc(url) + '" target="_blank" style="color:var(--green);font-weight:700;">abra a URL nesta aba ↗</a> e verifique se retorna ok:true no JSON.';
     delete window[cbName];
   };
   document.head.appendChild(s);
@@ -4327,7 +4346,7 @@ function normDateBR(v){
   // Já está no formato DD/MM/YYYY: valida com parseBR
   if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return parseBR(s) ? s : '—';
   // ISO YYYY-MM-DD: parse direto sem new Date() para evitar timezone shift
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})($|T| )/);
   if(iso){ const br=`${iso[3]}/${iso[2]}/${iso[1]}`; return parseBR(br) ? br : '—'; }
   // Fallback para Date object stringificado (ex: "Mon Feb 15 2026...")
   const d = new Date(s);
@@ -4377,14 +4396,19 @@ async function fetchTasksFromGas(){
       const entrega = normDateBR(st.entrega);
       const existing = allTasks.find(t => String(t.id) === String(st.id));
       if(existing){
-        // Metadados de texto SEMPRE atualizados do Sheets — assim edições feitas
-        // diretamente na planilha aparecem no dashboard no próximo sync.
-        if(st.name)  existing.name  = st.name;
-        if(st.note  != null) existing.note  = st.note;
-        if(st.resp)  existing.resp  = st.resp || existing.resp;
-        if(st.dest)  existing.dest  = st.dest || existing.dest;
-        if(st.email != null) existing.email = st.email;
-        if(st.month) existing.month = st.month;
+        // Tarefas _edited foram modificadas pelo usuário no dashboard:
+        // NÃO sobrescrever com dados do Sheets. O dashboard é a fonte de verdade.
+        // Motivo: pushTaskToGas é async/fire-and-forget; fetchTasksFromGas pode rodar
+        // antes do Sheets processar o POST, corrompendo os dados em memória com dados antigos.
+        if(!existing._edited){
+          // Tarefa sem edição local: aceita atualização do Sheets (ex: edição direta na planilha)
+          if(st.name)         existing.name  = st.name;
+          if(st.note  != null) existing.note  = st.note;
+          if(st.resp)         existing.resp  = st.resp || existing.resp;
+          if(st.dest)         existing.dest  = st.dest || existing.dest;
+          if(st.email != null) existing.email = st.email;
+          if(st.month)        existing.month = st.month;
+        }
         // Datas NUNCA importadas do Sheets para tarefas já existentes.
         // O Sheets com locale americano auto-converte DD/MM → Date object invertido (MM/DD).
         // O dashboard é a única fonte de verdade para prazo e entrega.
@@ -4404,9 +4428,17 @@ async function fetchTasksFromGas(){
     });
 
     if(updated || added){
+      applyBizDayAdjustments(); // ajusta prazo de tarefas em feriados/fins de semana
       recalcAllStatuses();
       renderTimeline();
       tasks = allTasks.filter(t => t.month === activeMth);
+      // Reconstrói o filtro de responsáveis para incluir novos responsáveis vindos do Sheets
+      const respSet = new Set(tasks.map(t => t.resp).filter(r => r && r !== '—'));
+      const sel = document.getElementById('filterResp');
+      const curVal = sel.value;
+      sel.innerHTML = '<option value="">Todos os responsáveis</option>';
+      [...respSet].sort().forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); });
+      if(curVal) sel.value = curVal; // preserva seleção atual se ainda existir
       applyFilters();
       updateNotifyBadge();
       markReportStale();
@@ -4443,13 +4475,17 @@ async function fetchConfirmations(){
       // Se já foi entregue (qualquer tipo) e já tem data de entrega, não sobrescreve
       const jaEntregue = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO');
       if(jaEntregue && t.entrega && t.entrega!=='—') return;
-      // Converte ISO → dd/MM/yyyy
-      const d   = new Date(c.confirmedAt);
-      const fmt = [String(d.getDate()).padStart(2,'0'), String(d.getMonth()+1).padStart(2,'0'), d.getFullYear()].join('/');
+      // Converte ISO → dd/MM/yyyy sem usar new Date() para evitar desvio de fuso horário
+      // confirmedAt é UTC ISO (ex: "2026-04-06T01:00:00.000Z"); getDate() usaria hora local
+      // e poderia retornar o dia anterior em horários próximos à meia-noite no Brasil (UTC-3)
+      const isoDate = (c.confirmedAt||'').slice(0,10); // "2026-04-06"
+      const [yr, mo, da] = isoDate.split('-');
+      const fmt = (da && mo && yr) ? `${da}/${mo}/${yr}` : todayStr();
       t.entrega = fmt;
       t.status  = calcStatus(t.prazo, fmt); // calcula corretamente (antecipada, no prazo ou com atraso)
       t._edited = true; t._dateEdited = true;
       applied++;
+      pushTaskToGas(t); // sincroniza imediatamente com o Sheets ao confirmar por e-mail
     });
     if(applied){
       saveOverrides();
@@ -4476,20 +4512,21 @@ function todayStr(){
 function getTasksDueToday(){
   const today = todayStr();
   const delivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
-  return allTasks.filter(t =>
-    t.prazo === today &&
-    !delivered.has(t.status) &&
-    t.email && t.email.trim()
-  );
+  return allTasks
+    .filter(t => (t.prazo === today || t.status === 'ATRASADO') && !delivered.has(t.status))
+    .map(t => ({...t, email: (t.email && t.email.trim()) ? t.email : DEFAULT_EMAIL}));
 }
 
 function updateNotifyBadge(){
-  const count = getTasksDueToday().length;
+  const all = getTasksDueToday();
+  // conta destinatários únicos
+  const uniqueEmails = new Set(all.map(t=>t.email));
+  const count = uniqueEmails.size;
   const btn = document.getElementById('btnNotify');
   const badge = document.getElementById('notifyCount');
   if(count > 0){
     btn.classList.add('has-tasks');
-    badge.textContent = count;
+    badge.textContent = all.length; // mostra total de tarefas no badge
     badge.style.display = 'inline-flex';
   } else {
     btn.classList.remove('has-tasks');
@@ -4497,7 +4534,19 @@ function updateNotifyBadge(){
   }
 }
 
-let notifyItems = []; // [{task, status:'pending'|'sending'|'ok'|'err', msg}]
+// notifyItems: [{email, tasks:[{task, delivered}], status:'pending'|'sending'|'ok'|'err', msg}]
+let notifyItems = [];
+
+function _buildNotifyGroups(){
+  const all = getTasksDueToday();
+  const map = {};
+  all.forEach(t => {
+    const key = t.email;
+    if(!map[key]) map[key] = [];
+    map[key].push({task: t, delivered: false});
+  });
+  return Object.entries(map).map(([email, tasks]) => ({email, tasks, status:'pending', msg:''}));
+}
 
 function openNotifyModal(){
   const cfg = loadGasConfig();
@@ -4506,12 +4555,9 @@ function openNotifyModal(){
     openConfigModal();
     return;
   }
-
-  const due = getTasksDueToday();
-  notifyItems = due.map(t => ({task: t, status:'pending', msg:''}));
+  notifyItems = _buildNotifyGroups();
   renderNotifyList();
-
-  document.getElementById('btnFire').disabled = due.length === 0;
+  document.getElementById('btnFire').disabled = notifyItems.length === 0;
   document.getElementById('notifyOverlay').classList.add('open');
 }
 function closeNotifyModal(){ document.getElementById('notifyOverlay').classList.remove('open'); }
@@ -4524,55 +4570,69 @@ function renderNotifyList(){
   const info = document.getElementById('notifyFooterInfo');
 
   if(!notifyItems.length){
-    list.innerHTML = `<div class="notify-empty"><div style="font-size:44px;margin-bottom:10px;opacity:.35">📭</div><div style="font-size:14px">Nenhuma tarefa com prazo hoje<br>que tenha e-mail cadastrado e ainda não entregue.</div></div>`;
+    list.innerHTML = `<div class="notify-empty"><div style="font-size:44px;margin-bottom:10px;opacity:.35">📭</div><div style="font-size:14px">Nenhuma tarefa com prazo hoje ou atrasada<br>para enviar.</div></div>`;
     info.textContent = '';
     return;
   }
 
-  const ok = notifyItems.filter(i=>i.status==='ok').length;
-  const err = notifyItems.filter(i=>i.status==='err').length;
-  info.textContent = `${notifyItems.length} e-mail${notifyItems.length!==1?'s':''} · ${ok} enviado${ok!==1?'s':''} · ${err} erro${err!==1?'s':''}`;
+  const totalTasks = notifyItems.reduce((s,g)=>s+g.tasks.length,0);
+  const ok  = notifyItems.filter(g=>g.status==='ok').length;
+  const err = notifyItems.filter(g=>g.status==='err').length;
+  info.textContent = `${notifyItems.length} destinatário${notifyItems.length!==1?'s':''} · ${totalTasks} tarefa${totalTasks!==1?'s':''} · ${ok} enviado${ok!==1?'s':''} · ${err} erro${err!==1?'s':''}`;
 
-  list.innerHTML = notifyItems.map((item,idx) => {
-    const t = item.task;
-    const isDelivered = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO'||item.delivered);
-    const statusLabels = {pending:'Aguardando', sending:'Enviando…', ok:'Enviado ✓', err:'Erro ✗'};
-    const statusClass  = item.delivered ? 'done' : item.status;
-    const statusLabel  = item.delivered ? 'Entregue ✓' : statusLabels[item.status];
-    return `<div class="notify-item" id="ni-${idx}">
-      <div class="notify-item-info">
-        <div class="notify-item-name">${esc(t.name)}</div>
-        <div class="notify-item-meta">
-          <span>👤 ${esc(t.resp)}</span>
-          <span>✉ ${esc(t.email)}</span>
-          <span>📅 Prazo: ${t.prazo}</span>
-          ${t.note ? `<span style="color:var(--blue-mid)">${esc(t.note)}</span>` : ''}
-          ${item.msg && !item.delivered ? `<span style="color:var(--text-muted);font-size:10px;font-style:italic">${esc(item.msg)}</span>` : ''}
+  const statusLabels = {pending:'Aguardando', sending:'Enviando…', ok:'Enviado ✓', err:'Erro ✗'};
+
+  list.innerHTML = notifyItems.map((group, gIdx) => {
+    const delivered = group.tasks.filter(ti=>ti.delivered).length;
+    const statusClass = group.status;
+    const statusLabel = statusLabels[group.status];
+
+    const taskRows = group.tasks.map((ti, tIdx) => {
+      const t = ti.task;
+      const isOverdue = t.status === 'ATRASADO';
+      const isDone = ti.delivered;
+      return `<div class="notify-task-row${isDone?' done-row':''}">
+        <div class="notify-task-info">
+          <span class="notify-task-name">${esc(t.name)}</span>
+          <div class="notify-task-meta">
+            <span>👤 ${esc(t.resp||'—')}</span>
+            <span>📅 ${t.prazo}</span>
+            <span class="${isOverdue?'tag-atrasado':'tag-hoje'}">${isOverdue?'⚠ Atrasado':'⚡ Hoje'}</span>
+            ${t.note?`<span>${esc(t.note)}</span>`:''}
+          </div>
         </div>
+        ${!isDone
+          ?`<button class="btn-mark-done" onclick="markTaskDelivered(${gIdx},${tIdx})" title="Registrar entrega">✅ Entregue</button>`
+          :`<button class="btn-mark-done done" disabled>✅ Entregue</button>`}
+      </div>`;
+    }).join('');
+
+    return `<div class="notify-group" id="ng-${gIdx}">
+      <div class="notify-group-header">
+        <span class="notify-group-email">✉ ${esc(group.email)}</span>
+        <span class="notify-group-meta">${group.tasks.length} tarefa${group.tasks.length!==1?'s':''} · ${delivered} entregue${delivered!==1?'s':''}</span>
+        <span class="notify-status ${statusClass}">${statusLabel}</span>
+        ${group.msg?`<span style="font-size:10px;color:var(--text-muted);font-style:italic">${esc(group.msg)}</span>`:''}
       </div>
-      <span class="notify-status ${statusClass}" style="margin-right:8px">${statusLabel}</span>
-      ${!isDelivered
-        ? `<button class="btn-mark-done" onclick="markTaskDelivered(${idx})" title="Registrar entrega agora">✅ Entregue</button>`
-        : `<button class="btn-mark-done done" disabled>✅ Entregue</button>`
-      }
+      <div>${taskRows}</div>
     </div>`;
   }).join('');
 }
 
-
-function markTaskDelivered(idx){
-  const item = notifyItems[idx];
-  if(!item) return;
+function markTaskDelivered(gIdx, tIdx){
+  const group = notifyItems[gIdx];
+  if(!group) return;
+  const item = group.tasks[tIdx];
+  if(!item || item.delivered) return;
   const today = todayStr();
   const t = allTasks.find(x => String(x.id) === String(item.task.id));
   if(t){
     t.entrega = today;
-    t.status  = calcStatus(t.prazo, today); // calcula corretamente: antecipada, no prazo ou com atraso
+    t.status  = calcStatus(t.prazo, today);
     t._edited = true; t._dateEdited = true;
     saveOverrides();
     pushTaskToGas(t);
   }
-  // Atualiza também a referência no notifyItems
   item.task.entrega = today;
   item.task.status  = calcStatus(item.task.prazo, today);
   item.delivered    = true;
@@ -4580,7 +4640,7 @@ function markTaskDelivered(idx){
   renderTimeline();
   applyFilters();
   markReportStale();
-  showToast('✅ Entrega registrada — ' + item.task.name.slice(0,40) + '…', 'green');
+  showToast('✅ Entrega registrada — ' + item.task.name.slice(0,40), 'green');
 }
 
 async function fireEmails(){
@@ -4591,42 +4651,48 @@ async function fireEmails(){
   }
 
   const btn = document.getElementById('btnFire');
+  const deliveredStatus = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
 
-  // Só dispara tarefas pendentes (exclui as já marcadas como entregues no modal)
-  const delivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
-  const pending = notifyItems.filter(i => !i.delivered && !delivered.has(i.task.status));
-  if(!pending.length){
+  // Monta grupos com tarefas ainda pendentes
+  const pendingGroups = notifyItems
+    .map(g => ({
+      ...g,
+      pendingTasks: g.tasks.filter(ti => !ti.delivered && !deliveredStatus.has(ti.task.status))
+    }))
+    .filter(g => g.pendingTasks.length > 0 && g.status !== 'ok');
+
+  if(!pendingGroups.length){
     showToast('ℹ️ Nenhuma tarefa pendente para disparar','');
     return;
   }
 
-  const tasks = pending.map(i => i.task);
+  const groups = pendingGroups.map(g => ({email: g.email, tasks: g.pendingTasks.map(ti=>ti.task)}));
+  // tasks flat = fallback para versão anterior do GAS (1 email por tarefa)
+  const tasksFallback = groups.flatMap(g => g.tasks);
+
   btn.disabled = true;
   btn.innerHTML = '⏳ Enviando…';
-
-  // Marca pendentes como "enviando"
-  pending.forEach(i => { i.status = 'sending'; i.msg = ''; });
+  pendingGroups.forEach(g => { const orig = notifyItems.find(x=>x.email===g.email); if(orig){ orig.status='sending'; orig.msg=''; } });
   renderNotifyList();
 
   try {
     await fetch(cfg.url, {
       method: 'POST',
       headers: {'Content-Type':'text/plain'},
-      body: JSON.stringify({ action: 'send_all', tasks }),
+      body: JSON.stringify({ action: 'send_all', groups, tasks: tasksFallback }),
       mode: 'no-cors',
     });
-    // no-cors: não é possível ler a resposta, mas a requisição chega ao GAS
     await new Promise(r => setTimeout(r, 1200));
-    pending.forEach(i => { i.status = 'ok'; i.msg = 'Enviado'; });
-    showToast(`✅ ${tasks.length} e-mail${tasks.length!==1?'s':''} disparado${tasks.length!==1?'s':''}`, 'green');
+    pendingGroups.forEach(g => { const orig = notifyItems.find(x=>x.email===g.email); if(orig){ orig.status='ok'; orig.msg=''; } });
+    showToast(`✅ ${groups.length} e-mail${groups.length!==1?'s':''} disparado${groups.length!==1?'s':''}!`, 'green');
   } catch(err) {
-    pending.forEach(i => { i.status = 'err'; i.msg = err.message; });
+    pendingGroups.forEach(g => { const orig = notifyItems.find(x=>x.email===g.email); if(orig){ orig.status='err'; orig.msg=err.message; } });
     showToast('❌ Erro ao conectar com o Apps Script','');
   }
 
   renderNotifyList();
   btn.disabled = false;
-  btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Disparar`;
+  btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Disparar e-mails`;
   updateNotifyBadge();
 }
 
