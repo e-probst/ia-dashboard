@@ -4705,15 +4705,35 @@ async function fireEmails(){
   renderNotifyList();
 
   try {
+    const sentAt = new Date().toISOString();
     await fetch(cfg.url, {
       method: 'POST',
       headers: {'Content-Type':'text/plain'},
       body: JSON.stringify({ action: 'send_all', groups, tasks: tasksFallback }),
       mode: 'no-cors',
     });
-    await new Promise(r => setTimeout(r, 1200));
-    pendingGroups.forEach(g => { const orig = notifyItems.find(x=>x.email===g.email); if(orig){ orig.status='ok'; orig.msg=''; } });
-    showToast(`✅ ${groups.length} e-mail${groups.length!==1?'s':''} disparado${groups.length!==1?'s':''}!`, 'green');
+    // no-cors não permite ler a resposta; aguarda o GAS processar e verifica via JSONP
+    await new Promise(r => setTimeout(r, 2500));
+    let gasResult = null;
+    try {
+      const check = await fetchJsonp(cfg.url + '?action=get_confirmations', 6000);
+      if(check.lastSend && check.lastSend.ts > sentAt) gasResult = check.lastSend;
+    } catch(e2) {}
+
+    if(gasResult){
+      if(gasResult.ok){
+        pendingGroups.forEach(g => { const orig = notifyItems.find(x=>x.email===g.email); if(orig){ orig.status='ok'; orig.msg=''; } });
+        showToast(`✅ ${gasResult.sent} e-mail${gasResult.sent!==1?'s':''} enviado${gasResult.sent!==1?'s':''}!`, 'green');
+      } else {
+        const nErrs = (gasResult.errors||[]).length;
+        pendingGroups.forEach(g => { const orig = notifyItems.find(x=>x.email===g.email); if(orig){ orig.status='err'; orig.msg=''; } });
+        showToast(`⚠️ ${gasResult.sent} enviado(s), ${nErrs} erro(s). Veja logs do Apps Script.`, '');
+      }
+    } else {
+      // JSONP não confirmou (timeout ou GAS lento) — disparo foi solicitado, resultado incerto
+      pendingGroups.forEach(g => { const orig = notifyItems.find(x=>x.email===g.email); if(orig){ orig.status='ok'; orig.msg=''; } });
+      showToast(`📤 ${groups.length} e-mail${groups.length!==1?'s':''} disparado${groups.length!==1?'s':''} (confirme nos logs)`, 'green');
+    }
   } catch(err) {
     pendingGroups.forEach(g => { const orig = notifyItems.find(x=>x.email===g.email); if(orig){ orig.status='err'; orig.msg=err.message; } });
     showToast('❌ Erro ao conectar com o Apps Script','');

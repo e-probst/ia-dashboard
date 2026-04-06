@@ -249,12 +249,16 @@ function handleGetConfirmations(callback) {
   var props  = PropertiesService.getScriptProperties();
   var all    = props.getProperties();
   var result = [];
+  var lastSend = null;
   Object.keys(all).forEach(function(k) {
     if (k.indexOf('confirm_') === 0) {
       try { result.push(JSON.parse(all[k])); } catch(e) {}
     }
+    if (k === 'last_send_result') {
+      try { lastSend = JSON.parse(all[k]); } catch(e) {}
+    }
   });
-  return jsonpResponse({ ok: true, confirmations: result }, callback);
+  return jsonpResponse({ ok: true, confirmations: result, lastSend: lastSend }, callback);
 }
 
 // Calcula status de entrega dado prazo (DD/MM/YYYY) e data de entrega (DD/MM/YYYY)
@@ -647,6 +651,12 @@ function handleSendAll(body) {
       Logger.log('resp_sent store error: ' + e.message);
     }
   });
+  // Grava resultado para que o dashboard possa verificar via JSONP (no-cors não lê a resposta)
+  try {
+    props2.setProperty('last_send_result', JSON.stringify({
+      ok: errs.length === 0, sent: sent, errors: errs, ts: new Date().toISOString()
+    }));
+  } catch(e) {}
 
   return { ok: errs.length === 0, sent: sent, errors: errs };
 }
@@ -744,6 +754,12 @@ function handleSendNow(body) {
       Logger.log('resp_sent store error (send_now): ' + e.message);
     }
   });
+  // Grava resultado para verificação via JSONP pelo dashboard
+  try {
+    props2.setProperty('last_send_result', JSON.stringify({
+      ok: errs.length === 0, sent: sent, errors: errs, ts: new Date().toISOString()
+    }));
+  } catch(e) {}
 
   return { ok: errs.length === 0, sent: sent, errors: errs };
 }
