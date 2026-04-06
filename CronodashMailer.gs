@@ -725,6 +725,26 @@ function handleSendNow(body) {
     }
   });
 
+  // Armazena lista de tarefas por responsável para "Minhas Entregas"
+  // (mesmo tratamento de handleSendAll — send_now também gera link pessoal)
+  var props2 = PropertiesService.getScriptProperties();
+  var respMap = {};
+  tasks.forEach(function(t) {
+    if (!t.id) return;
+    var r = (t.resp || '').trim();
+    if (!r || r === '—') return;
+    if (!respMap[r]) respMap[r] = [];
+    respMap[r].push({id: String(t.id), name: t.name||'', prazo: t.prazo||''});
+  });
+  Object.keys(respMap).forEach(function(r) {
+    var rKey = 'resp_sent_' + r.trim().toLowerCase()
+      .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,60);
+    var data = {resp: r, tasks: respMap[r], sentAt: new Date().toISOString()};
+    try { props2.setProperty(rKey, JSON.stringify(data)); } catch(e) {
+      Logger.log('resp_sent store error (send_now): ' + e.message);
+    }
+  });
+
   return { ok: errs.length === 0, sent: sent, errors: errs };
 }
 

@@ -4431,7 +4431,7 @@ async function fetchTasksFromGas(){
         // Tarefa existe só no Sheets (criada em outra sessão ou direto na planilha)
         // Status NUNCA vem do Sheets — recalcAllStatuses calcula após o merge
         allTasks.push({
-          id: sid || nextId, name: st.name, note: st.note||'', resp: st.resp||'—',
+          id: (sid > 0 ? sid : nextId++), name: st.name, note: st.note||'', resp: st.resp||'—',
           dest: st.dest||'—', email: st.email||'', prazo, entrega, month: st.month||'',
           status: 'NO PRAZO',
         });
