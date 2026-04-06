@@ -3501,11 +3501,14 @@ function init(){
   selectMonth(_curMth);
   updateConfigBtnState();
   updateNotifyBadge();
+  updateTrashBadge(); // restaura badge da lixeira após loadOverrides
   renderHolidayBanner();
   document.getElementById('headerDate').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   renderTimeline();
   fetchConfirmations();
   fetchTasksFromGas();
+  // Garante que Ctrl+P sempre imprime o relatório atualizado
+  window.addEventListener('beforeprint', () => { if(_reportStale) renderReport(); });
   // Polling periódico — 30 s para sync quase em tempo real
   setInterval(fetchConfirmations, 30 * 1000); // confirmações a cada 30 s
   setInterval(fetchTasksFromGas,  30 * 1000); // Sheets → dashboard a cada 30 s
