@@ -96,66 +96,7 @@ function handleConfirmDelivery(params) {
     }
   }
 
-  // Busca todas as tarefas do responsável no Sheets para exibir o painel de entregas
-  var allRespTasks = [];
-  if (resp && SPREADSHEET_ID) {
-    try {
-      var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-      var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
-      var rows  = sheet.getDataRange().getValues();
-      if (rows.length > 1) {
-        var headers = rows[0].map(function(h){ return String(h).trim().toLowerCase(); });
-        function hIdx(candidates) {
-          for (var i = 0; i < candidates.length; i++) {
-            var x = headers.indexOf(candidates[i].toLowerCase());
-            if (x >= 0) return x;
-          }
-          return -1;
-        }
-        var colId   = hIdx(['id']);
-        var colNome = hIdx(['nome','name']);
-        var colResp = hIdx(['responsavel','responsável','resp']);
-        var colPraz = hIdx(['prazo']);
-        var colMes  = hIdx(['mes','mês','month']);
-
-        var respNorm = resp.trim().toLowerCase();
-        for (var r = 1; r < rows.length; r++) {
-          var row     = rows[r];
-          var rowResp = colResp >= 0 ? String(row[colResp] || '').trim() : '';
-          if (!rowResp || rowResp.toLowerCase() !== respNorm) continue;
-          var rowId   = colId   >= 0 ? String(row[colId]   || '') : '';
-          var rowName = colNome >= 0 ? String(row[colNome]  || '') : '';
-          var rowPraz = colPraz >= 0 ? fmtDateBR(row[colPraz]) : '—';
-          var rowMes  = colMes  >= 0 ? String(row[colMes]  || '') : '';
-          // Verifica confirmação no PropertiesService
-          var confRaw = rowId ? props.getProperty('confirm_' + rowId) : null;
-          var confirmed   = !!confRaw;
-          var confirmedAt = '';
-          if (confRaw) {
-            try {
-              var parsed = JSON.parse(confRaw);
-              var iso = (parsed.confirmedAt || '').slice(0, 10).split('-');
-              if (iso.length === 3) confirmedAt = iso[2] + '/' + iso[1] + '/' + iso[0];
-            } catch(e) {}
-          }
-          allRespTasks.push({
-            id: rowId, name: rowName, prazo: rowPraz, mes: rowMes,
-            confirmed: confirmed, confirmedAt: confirmedAt, isCurrent: (rowId === id)
-          });
-        }
-        // Ordena: confirmadas primeiro, depois pendentes por prazo asc
-        // Converte DD/MM/YYYY → YYYYMMDD para comparação cronológica correta
-        function prazoCmp(p){ var s=(p||'').split('/'); return s.length===3?s[2]+s[1]+s[0]:'99999999'; }
-        allRespTasks.sort(function(a, b) {
-          if (a.confirmed && !b.confirmed) return -1;
-          if (!a.confirmed && b.confirmed) return 1;
-          return prazoCmp(a.prazo) < prazoCmp(b.prazo) ? -1 : prazoCmp(a.prazo) > prazoCmp(b.prazo) ? 1 : 0;
-        });
-      }
-    } catch(e) {
-      Logger.log('handleConfirmDelivery: erro ao buscar tarefas: ' + e.message);
-    }
-  }
+  var allRespTasks = getRespTasksForPanel(resp, id, props);
 
   return HtmlService.createHtmlOutput(buildConfirmationPage(name, prazo, !!already, resp, allRespTasks))
     .setTitle('Entrega Confirmada · Cronograma Mensal');
@@ -170,35 +111,99 @@ function handleViewStatus(params) {
   var props = PropertiesService.getScriptProperties();
   var already = id ? !!props.getProperty('confirm_' + id) : false;
 
-  var allRespTasks = [];
-  if (resp && SPREADSHEET_ID) {
-    try {
-      var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-      var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
-      var rows  = sheet.getDataRange().getValues();
-      if (rows.length > 1) {
-        var headers = rows[0].map(function(h){ return String(h).trim().toLowerCase(); });
-        function hIdx(c) { for(var i=0;i<c.length;i++){var x=headers.indexOf(c[i].toLowerCase());if(x>=0)return x;} return -1; }
-        var colId=hIdx(['id']), colNome=hIdx(['nome','name']), colResp=hIdx(['responsavel','responsável','resp']), colPraz=hIdx(['prazo']), colMes=hIdx(['mes','mês','month']);
-        var respNorm = resp.trim().toLowerCase();
-        for (var r = 1; r < rows.length; r++) {
-          var row = rows[r];
-          var rowResp = colResp >= 0 ? String(row[colResp]||'').trim() : '';
-          if (!rowResp || rowResp.toLowerCase() !== respNorm) continue;
-          var rowId = colId >= 0 ? String(row[colId]||'') : '';
-          var confRaw = rowId ? props.getProperty('confirm_'+rowId) : null;
-          var confirmedAt = '';
-          if (confRaw) { try { var iso=(JSON.parse(confRaw).confirmedAt||'').slice(0,10).split('-'); if(iso.length===3) confirmedAt=iso[2]+'/'+iso[1]+'/'+iso[0]; } catch(e){} }
-          allRespTasks.push({ id:rowId, name:colNome>=0?String(row[colNome]||''):'', prazo:colPraz>=0?fmtDateBR(row[colPraz]):'—', mes:colMes>=0?String(row[colMes]||''):'', confirmed:!!confRaw, confirmedAt:confirmedAt, isCurrent:(rowId===id) });
-        }
-        function prazoCmp2(p){ var s=(p||'').split('/'); return s.length===3?s[2]+s[1]+s[0]:'99999999'; }
-        allRespTasks.sort(function(a,b){ if(a.confirmed&&!b.confirmed)return -1; if(!a.confirmed&&b.confirmed)return 1; return prazoCmp2(a.prazo)<prazoCmp2(b.prazo)?-1:prazoCmp2(a.prazo)>prazoCmp2(b.prazo)?1:0; });
-      }
-    } catch(e) { Logger.log('handleViewStatus erro: '+e.message); }
-  }
+  var allRespTasks = getRespTasksForPanel(resp, id, props);
 
   return HtmlService.createHtmlOutput(buildConfirmationPage(name, params.prazo||'', already, resp, allRespTasks, true))
     .setTitle('Minhas Entregas · Cronograma Mensal');
+}
+
+// Busca tarefas do responsável no Sheets filtrando: prazo hoje + atrasadas ≤30d
+// Mesma janela usada pelo dashboard e pelo dailyEmailJob
+function getRespTasksForPanel(resp, currentId, props) {
+  var result = [];
+  if (!resp || !SPREADSHEET_ID) return result;
+
+  var OVERDUE_WINDOW = 30;
+  var today = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+  var tParts = today.split('/');
+  var todayDate = new Date(+tParts[2], +tParts[1]-1, +tParts[0]);
+
+  try {
+    var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
+    var rows  = sheet.getDataRange().getValues();
+    if (rows.length < 2) return result;
+
+    var headers = rows[0].map(function(h){ return String(h).trim().toLowerCase(); });
+    function hIdx(c){ for(var i=0;i<c.length;i++){var x=headers.indexOf(c[i].toLowerCase());if(x>=0)return x;} return -1; }
+    var colId   = hIdx(['id']);
+    var colNome = hIdx(['nome','name']);
+    var colResp = hIdx(['responsavel','responsável','resp']);
+    var colPraz = hIdx(['prazo']);
+    var colEnt  = hIdx(['entrega']);
+    var colMes  = hIdx(['mes','mês','month']);
+
+    var respNorm = resp.trim().toLowerCase();
+
+    for (var r = 1; r < rows.length; r++) {
+      var row     = rows[r];
+      var rowResp = colResp >= 0 ? String(row[colResp]||'').trim() : '';
+      if (!rowResp || rowResp.toLowerCase() !== respNorm) continue;
+
+      var rowId      = colId   >= 0 ? String(row[colId]  ||'') : '';
+      var rowName    = colNome >= 0 ? String(row[colNome] ||'') : '';
+      var rowPraz    = colPraz >= 0 ? fmtDateBR(row[colPraz]) : '—';
+      var rowEntrega = colEnt  >= 0 ? fmtDateBR(row[colEnt])  : '—';
+      var rowMes     = colMes  >= 0 ? String(row[colMes]  ||'') : '';
+
+      // ── Filtro: só prazo hoje OU atrasada dentro da janela de 30d ──
+      var include = false;
+      if (rowPraz === today) {
+        include = true; // vence hoje
+      } else if (rowPraz && rowPraz !== '—') {
+        var pp = rowPraz.split('/');
+        if (pp.length === 3) {
+          var dPrazo = new Date(+pp[2], +pp[1]-1, +pp[0]);
+          if (!isNaN(dPrazo) && dPrazo < todayDate) {
+            var diff = Math.round((todayDate - dPrazo) / 86400000);
+            if (diff <= OVERDUE_WINDOW) include = true; // atrasada ≤30d
+          }
+        }
+      }
+      if (!include) continue;
+
+      // ── Status de entrega: Sheets tem precedência; fallback para PropertiesService ──
+      var sheetsDelivered = rowEntrega && rowEntrega !== '—';
+      var confRaw = rowId ? props.getProperty('confirm_' + rowId) : null;
+      var confirmed   = sheetsDelivered || !!confRaw;
+      var confirmedAt = '';
+      if (sheetsDelivered) {
+        confirmedAt = rowEntrega; // data de entrega já registrada na planilha
+      } else if (confRaw) {
+        try {
+          var iso = (JSON.parse(confRaw).confirmedAt||'').slice(0,10).split('-');
+          if (iso.length === 3) confirmedAt = iso[2]+'/'+iso[1]+'/'+iso[0];
+        } catch(e2) {}
+      }
+
+      result.push({
+        id: rowId, name: rowName, prazo: rowPraz, mes: rowMes,
+        confirmed: confirmed, confirmedAt: confirmedAt,
+        isCurrent: (rowId === currentId)
+      });
+    }
+
+    // Ordena: pendentes primeiro (por prazo asc), depois entregues
+    function prazoCmp(p){ var s=(p||'').split('/'); return s.length===3?s[2]+s[1]+s[0]:'99999999'; }
+    result.sort(function(a, b) {
+      if (!a.confirmed &&  b.confirmed) return -1;
+      if ( a.confirmed && !b.confirmed) return  1;
+      return prazoCmp(a.prazo) < prazoCmp(b.prazo) ? -1 : prazoCmp(a.prazo) > prazoCmp(b.prazo) ? 1 : 0;
+    });
+  } catch(e) {
+    Logger.log('getRespTasksForPanel erro: ' + e.message);
+  }
+  return result;
 }
 
 function handleGetConfirmations(callback) {
