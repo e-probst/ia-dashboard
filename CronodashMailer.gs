@@ -170,15 +170,13 @@ function getRespTasksForPanel(resp, currentId, props) {
           }
         }
       }
-      if (!include) continue;
-
       // ── Status de entrega: Sheets tem precedência; fallback para PropertiesService ──
       var sheetsDelivered = rowEntrega && rowEntrega !== '—';
       var confRaw = rowId ? props.getProperty('confirm_' + rowId) : null;
       var confirmed   = sheetsDelivered || !!confRaw;
       var confirmedAt = '';
       if (sheetsDelivered) {
-        confirmedAt = rowEntrega; // data de entrega já registrada na planilha
+        confirmedAt = rowEntrega;
       } else if (confRaw) {
         try {
           var iso = (JSON.parse(confRaw).confirmedAt||'').slice(0,10).split('-');
@@ -186,10 +184,18 @@ function getRespTasksForPanel(resp, currentId, props) {
         } catch(e2) {}
       }
 
+      // Exclui tarefas já entregues EXCETO a tarefa atual (que acabou de ser confirmada)
+      // Isso garante que a lista mostre apenas pendentes + a tarefa sendo confirmada
+      var isCurrent = (rowId === currentId);
+      if (confirmed && !isCurrent) continue;
+
+      // Aplica filtro de data somente para tarefas pendentes (entregues já foram descartadas)
+      if (!include && !isCurrent) continue;
+
       result.push({
         id: rowId, name: rowName, prazo: rowPraz, mes: rowMes,
         confirmed: confirmed, confirmedAt: confirmedAt,
-        isCurrent: (rowId === currentId)
+        isCurrent: isCurrent
       });
     }
 
@@ -440,7 +446,7 @@ function buildConfirmationPage(name, prazo, alreadyDone, resp, allRespTasks, vie
     + '<style>'
     + '*{box-sizing:border-box;margin:0;padding:0}'
     + 'body{font-family:Arial,sans-serif;background:#eef4fb;display:flex;justify-content:center;min-height:100vh;padding:24px 16px}'
-    + '.wrap{max-width:780px;width:100%;align-self:flex-start}'
+    + '.wrap{max-width:960px;width:100%;align-self:flex-start}'
     + '.card{background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(13,45,110,.13);overflow:hidden;margin-bottom:16px}'
     + '.hdr{background:linear-gradient(135deg,#0d2d6e,#1352b8);padding:22px 28px;display:flex;align-items:center;gap:16px}'
     + '.hdr-text h1{color:#fff;font-size:17px;font-weight:700;margin-bottom:2px}'
