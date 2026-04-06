@@ -4029,6 +4029,7 @@ function saveOverrides(){
     allTasks.forEach(t=>{
       if(!t._edited) return;
       const payload = {
+        name: t.name||'', // necessário para preservar edições de nome após reload
         note: t.note||'', email: t.email||'', resp: t.resp||'—', dest: t.dest||'—',
         status: t.status||'NO PRAZO', month: t.month||activeMth, _edited: true,
         _dateEdited: !!t._dateEdited,
@@ -4087,6 +4088,7 @@ function loadOverrides(){
         const originalEmail = t.email;
         // Campos de texto sempre restaurados
         Object.assign(t, {
+          name:  saved.name  || t.name,   // preserva edições de nome
           note:  saved.note  != null ? saved.note  : t.note,
           email: saved.email != null ? saved.email : t.email,
           resp:  saved.resp  || t.resp,
@@ -4511,9 +4513,20 @@ function todayStr(){
 
 function getTasksDueToday(){
   const today = todayStr();
+  const todayDate = parseBR(today);
   const delivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
+  const OVERDUE_WINDOW = 30; // dias — evita spam de tarefas de meses muito antigos
   return allTasks
-    .filter(t => (t.prazo === today || t.status === 'ATRASADO') && !delivered.has(t.status))
+    .filter(t => {
+      if(delivered.has(t.status)) return false;
+      if(t.prazo === today) return true;           // vence hoje
+      if(t.status === 'ATRASADO') {
+        const dp = parseBR(t.prazo);
+        if(!dp || !todayDate) return false;
+        return Math.round((todayDate - dp) / 86400000) <= OVERDUE_WINDOW;
+      }
+      return false;
+    })
     .map(t => ({...t, email: (t.email && t.email.trim()) ? t.email : DEFAULT_EMAIL}));
 }
 

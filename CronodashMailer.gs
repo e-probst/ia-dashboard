@@ -69,6 +69,7 @@ function handleConfirmDelivery(params) {
   var name  = params.name  || 'Tarefa';
   var prazo = params.prazo || '';
   var resp  = params.resp  || '';
+  var month = params.month || '';
 
   if (!id) {
     return HtmlService.createHtmlOutput('<h2>Link inválido.</h2>');
@@ -80,9 +81,19 @@ function handleConfirmDelivery(params) {
   var already = props.getProperty(key);
 
   if (!already) {
-    var data = JSON.stringify({ id: id, name: name, prazo: prazo, confirmedAt: new Date().toISOString() });
+    var confirmedAt = new Date().toISOString();
+    var data = JSON.stringify({ id: id, name: name, prazo: prazo, confirmedAt: confirmedAt });
     props.setProperty(key, data);
     Logger.log('Entrega confirmada via e-mail: id=' + id + ' | ' + name);
+    // Atualiza imediatamente a planilha (evita lag até o próximo polling do dashboard)
+    if (SPREADSHEET_ID) {
+      try {
+        var today = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+        confirmDeliveryInSheet(id, today, prazo, month);
+      } catch(e) {
+        Logger.log('handleConfirmDelivery: erro ao atualizar planilha: ' + e.message);
+      }
+    }
   }
 
   // Busca todas as tarefas do responsável no Sheets para exibir o painel de entregas
@@ -202,6 +213,54 @@ function handleGetConfirmations(callback) {
   return jsonpResponse({ ok: true, confirmations: result }, callback);
 }
 
+// Calcula status de entrega dado prazo (DD/MM/YYYY) e data de entrega (DD/MM/YYYY)
+function calcDeliveryStatus(prazo, entrega) {
+  var pParts = (prazo||'').split('/');
+  var eParts = (entrega||'').split('/');
+  if (pParts.length !== 3 || eParts.length !== 3) return 'ENTREGUE';
+  var dp = new Date(+pParts[2], +pParts[1]-1, +pParts[0]);
+  var de = new Date(+eParts[2], +eParts[1]-1, +eParts[0]);
+  if (isNaN(dp) || isNaN(de)) return 'ENTREGUE';
+  if (de < dp)  return 'ENTREGA ANTECIPADA';
+  if (de.getTime() === dp.getTime()) return 'ENTREGUE';
+  return 'ENTREGUE COM ATRASO';
+}
+
+// Atualiza Entrega + Status + "Atualizado em" em todas as abas (Todos + mês) pelo ID
+function confirmDeliveryInSheet(id, today, prazo, month) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var now = new Date().toISOString();
+  var status = prazo && prazo !== '—' ? calcDeliveryStatus(prazo, today) : 'ENTREGUE';
+
+  function updateSheet(sheet) {
+    if (!sheet) return;
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+      .map(function(h){ return String(h).trim().toLowerCase(); });
+    var iId  = headers.indexOf('id');
+    var iEnt = headers.indexOf('entrega');
+    var iSt  = headers.indexOf('status');
+    var iAtu = headers.indexOf('atualizado em');
+    if (iId < 0 || iEnt < 0) return;
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+    var ids = sheet.getRange(2, iId+1, lastRow-1, 1).getValues();
+    for (var r = 0; r < ids.length; r++) {
+      if (String(ids[r][0]) === String(id)) {
+        var row = r + 2;
+        sheet.getRange(row, iEnt+1).setNumberFormat('@').setValue(today);
+        if (iSt  >= 0) sheet.getRange(row, iSt+1).setValue(status);
+        if (iAtu >= 0) sheet.getRange(row, iAtu+1).setValue(now);
+        break;
+      }
+    }
+  }
+
+  updateSheet(ss.getSheetByName('Todos') || ss.getSheets()[0]);
+  if (month && MONTH_SHEET[month]) {
+    updateSheet(ss.getSheetByName(MONTH_SHEET[month]));
+  }
+}
+
 // Formata valor de célula de data para DD/MM/YYYY (suporta Date object ou string)
 function fmtDateBR(val) {
   if (!val || val === '-' || val === '—') return '—';
@@ -250,8 +309,11 @@ function handleGetTasks(callback) {
       var row  = data[r];
       var nome = iNome >= 0 ? String(row[iNome] || '').trim() : '';
       if (!nome) continue;
+      // Linhas sem ID válido são ignoradas — evita colisão com IDs do dashboard
+      var rowId = iID >= 0 ? Number(row[iID]) : NaN;
+      if (isNaN(rowId) || rowId <= 0) continue;
       tasks.push({
-        id:      (iID >= 0 && row[iID] !== '') ? Number(row[iID]) : r,
+        id:      rowId,
         name:    nome,
         note:    iNota    >= 0 ? String(row[iNota]    || '') : '',
         resp:    iResp    >= 0 ? String(row[iResp]    || '—') : '—',
@@ -672,24 +734,98 @@ function createDailyTrigger() {
 // Roda às 7h automaticamente; pode ser testado manualmente
 
 function dailyEmailJob() {
-  // Esta função não lê do dashboard (sem acesso ao localStorage).
-  // Ela serve para enviar um resumo diário ao admin.
-  // Para uso completo, integre com uma planilha Google Sheets
-  // onde o dashboard sincroniza as tarefas via action 'sync'.
+  if (!SPREADSHEET_ID) {
+    Logger.log('dailyEmailJob: SPREADSHEET_ID não configurado');
+    return;
+  }
+  try {
+    var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
+    var data  = sheet.getDataRange().getValues();
+    if (data.length < 2) { Logger.log('dailyEmailJob: planilha vazia'); return; }
 
-  var today  = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
-  var subject = '[Cronograma Mensal] Relatório diário — ' + today;
-  var html = '<div style="font-family:Arial,sans-serif;color:#0a1e45;padding:20px">'
-    + '<h2 style="color:#1352b8">Cronograma Mensal · Mabu Hospitalidade</h2>'
-    + '<p>O envio diário automático está ativo. ✅</p>'
-    + '<p>Para exibir as tarefas do dia neste e-mail, conecte o dashboard a uma planilha Google Sheets '
-    + 'e leia os dados na função <strong>dailyEmailJob()</strong>.</p>'
-    + '<hr style="border:none;border-top:1px solid #d6e3f5;margin:16px 0">'
-    + '<p style="font-size:11px;color:#8096b8">Mensagem automática gerada em ' + new Date().toISOString() + '</p>'
-    + '</div>';
+    var headers = data[0].map(function(h){ return String(h).trim().toLowerCase(); });
+    function col(c){ for(var i=0;i<c.length;i++){var x=headers.indexOf(c[i].toLowerCase());if(x>=0)return x;} return -1; }
+    var iID=col(['id']), iNome=col(['nome','name']), iNota=col(['nota','note']),
+        iResp=col(['responsavel','responsável','resp']), iDest=col(['destinatario','destinatário','dest']),
+        iEmail=col(['email','e-mail']), iPrazo=col(['prazo']), iEntrega=col(['entrega']), iMes=col(['mes','mês','month']);
 
-  MailApp.sendEmail({ to: ADMIN_EMAIL, name: EMAIL_FROM_NAME, subject: subject, htmlBody: html });
-  Logger.log('dailyEmailJob executado: ' + today);
+    var today = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+    var tParts = today.split('/');
+    var todayDate = new Date(+tParts[2], +tParts[1]-1, +tParts[0]);
+    var OVERDUE_WINDOW = 30; // mesmo critério do dashboard
+
+    var tasks = [];
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var nome = iNome >= 0 ? String(row[iNome]||'').trim() : '';
+      if (!nome) continue;
+      var rowId = iID >= 0 ? Number(row[iID]) : NaN;
+      if (isNaN(rowId) || rowId <= 0) continue;
+      var prazo   = iPrazo   >= 0 ? fmtDateBR(row[iPrazo])   : '—';
+      var entrega = iEntrega >= 0 ? fmtDateBR(row[iEntrega]) : '—';
+
+      // Calcula status localmente (não lê do Sheets — pode estar desatualizado)
+      var status;
+      if (entrega && entrega !== '—') {
+        status = calcDeliveryStatus(prazo, entrega);
+      } else if (prazo && prazo !== '—') {
+        var pp = prazo.split('/');
+        if (pp.length === 3) {
+          var dPrazo = new Date(+pp[2], +pp[1]-1, +pp[0]);
+          status = isNaN(dPrazo) ? 'NO PRAZO' : (dPrazo < todayDate ? 'ATRASADO' : 'NO PRAZO');
+        } else { status = 'NO PRAZO'; }
+      } else { status = 'NO PRAZO'; }
+
+      // Filtra: só tarefas com prazo hoje ou atrasadas dentro da janela
+      var delivered = (status==='ENTREGUE'||status==='ENTREGA ANTECIPADA'||status==='ENTREGUE COM ATRASO');
+      if (delivered) continue;
+      var include = false;
+      if (prazo === today) { include = true; }
+      else if (status === 'ATRASADO') {
+        var pp2 = prazo.split('/');
+        if (pp2.length === 3) {
+          var dP2 = new Date(+pp2[2], +pp2[1]-1, +pp2[0]);
+          if (!isNaN(dP2) && Math.round((todayDate - dP2) / 86400000) <= OVERDUE_WINDOW) include = true;
+        }
+      }
+      if (!include) continue;
+
+      tasks.push({
+        id: rowId, name: nome,
+        note:  iNota  >= 0 ? String(row[iNota] ||'')  : '',
+        resp:  iResp  >= 0 ? String(row[iResp] ||'—') : '—',
+        dest:  iDest  >= 0 ? String(row[iDest] ||'—') : '—',
+        email: iEmail >= 0 ? String(row[iEmail]||'')  : '',
+        prazo: prazo, entrega: entrega, status: status,
+        month: iMes   >= 0 ? String(row[iMes]  ||'')  : '',
+      });
+    }
+
+    if (!tasks.length) {
+      Logger.log('dailyEmailJob: nenhuma tarefa com prazo hoje ou atrasada');
+      return;
+    }
+
+    // Monta grupos por e-mail (mesmo critério do dashboard)
+    var grouped = {};
+    tasks.forEach(function(t) {
+      var email = (t.email && t.email.trim()) ? t.email : ADMIN_EMAIL;
+      if (!grouped[email]) grouped[email] = [];
+      grouped[email].push(t);
+    });
+    var groups = Object.keys(grouped).map(function(email) {
+      return { email: email, tasks: grouped[email] };
+    });
+
+    var result = handleSendAll({ groups: groups });
+    Logger.log('dailyEmailJob: ' + tasks.length + ' tarefas em ' + groups.length + ' grupos | result: ' + JSON.stringify(result));
+  } catch(e) {
+    Logger.log('dailyEmailJob erro: ' + e.message + ' | stack: ' + (e.stack||''));
+    MailApp.sendEmail({ to: ADMIN_EMAIL, name: EMAIL_FROM_NAME,
+      subject: '[Cronograma Mensal] Erro no disparo diário — ' + new Date().toISOString(),
+      htmlBody: '<pre>' + e.message + '\n' + (e.stack||'') + '</pre>' });
+  }
 }
 
 // ── TESTE MANUAL ─────────────────────────────────────────────
@@ -812,7 +948,7 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
   var rows = tasks.map(function(t, idx) {
     var st          = statusMap[t.status] || { color:'#3a5080', bg:'#f0f6ff', label: t.status || '—' };
     var isDelivered = (t.status === 'ENTREGUE' || t.status === 'ENTREGA ANTECIPADA' || t.status === 'ENTREGUE COM ATRASO');
-    var baseParams = '&id=' + encodeURIComponent(t.id) + '&prazo=' + encodeURIComponent(t.prazo || '') + '&name=' + encodeURIComponent(t.name || '') + '&resp=' + encodeURIComponent(t.resp || '');
+    var baseParams = '&id=' + encodeURIComponent(t.id) + '&prazo=' + encodeURIComponent(t.prazo || '') + '&name=' + encodeURIComponent(t.name || '') + '&resp=' + encodeURIComponent(t.resp || '') + '&month=' + encodeURIComponent(t.month || '');
     var confirmLink = (showConfirm && gasUrl && !isDelivered)
       ? gasUrl + '?action=confirm' + baseParams
       : '';
