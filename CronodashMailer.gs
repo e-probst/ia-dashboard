@@ -81,14 +81,17 @@ function handleConfirmDelivery(params) {
   var already = props.getProperty(key);
 
   if (!already) {
-    var confirmedAt = new Date().toISOString();
-    var data = JSON.stringify({ id: id, name: name, prazo: prazo, confirmedAt: confirmedAt });
+    var confirmedAt   = new Date().toISOString();
+    // confirmedDate é a data em horário de Brasília (BRT); confirmedAt (UTC ISO) pode divergir
+    // por 1 dia perto da meia-noite → dashboard usa confirmedDate para exibir a data correta
+    var confirmedDate = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+    var data = JSON.stringify({ id: id, name: name, prazo: prazo, confirmedAt: confirmedAt, confirmedDate: confirmedDate });
     props.setProperty(key, data);
     Logger.log('Entrega confirmada via e-mail: id=' + id + ' | ' + name);
     // Atualiza imediatamente a planilha (evita lag até o próximo polling do dashboard)
     if (SPREADSHEET_ID) {
       try {
-        var today = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+        var today = confirmedDate; // reutiliza a data BRT já calculada
         confirmDeliveryInSheet(id, today, prazo, month);
       } catch(e) {
         Logger.log('handleConfirmDelivery: erro ao atualizar planilha: ' + e.message);
@@ -117,16 +120,36 @@ function handleViewStatus(params) {
     .setTitle('Minhas Entregas · Cronograma Mensal');
 }
 
-// Busca tarefas do responsável no Sheets filtrando: prazo hoje + atrasadas ≤30d
-// Mesma janela usada pelo dashboard e pelo dailyEmailJob
+// Busca tarefas do responsável para "Minhas Entregas".
+// Prioridade: usa lista armazenada do último disparo de e-mail (resp_sent_*).
+// Fallback: janela de 30d no Sheets (se nunca houve disparo).
 function getRespTasksForPanel(resp, currentId, props) {
   var result = [];
   if (!resp || !SPREADSHEET_ID) return result;
 
-  var OVERDUE_WINDOW = 30;
   var today = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
   var tParts = today.split('/');
   var todayDate = new Date(+tParts[2], +tParts[1]-1, +tParts[0]);
+
+  // ── Recupera lista armazenada do último e-mail disparado para este resp ──
+  var respKeyNorm = resp.trim().toLowerCase()
+    .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,60);
+  var storedRaw = props.getProperty('resp_sent_' + respKeyNorm);
+  var storedIds = null; // {id → {name, prazo}} se existir
+
+  if (storedRaw) {
+    try {
+      var stored = JSON.parse(storedRaw);
+      if (stored.tasks && stored.tasks.length) {
+        storedIds = {};
+        stored.tasks.forEach(function(t) {
+          if (t.id) storedIds[String(t.id)] = {name: t.name||'', prazo: t.prazo||''};
+        });
+      }
+    } catch(e) { Logger.log('resp_sent parse error: ' + e.message); }
+  }
+
+  var OVERDUE_WINDOW = 30;
 
   try {
     var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -156,20 +179,26 @@ function getRespTasksForPanel(resp, currentId, props) {
       var rowEntrega = colEnt  >= 0 ? fmtDateBR(row[colEnt])  : '—';
       var rowMes     = colMes  >= 0 ? String(row[colMes]  ||'') : '';
 
-      // ── Filtro: só prazo hoje OU atrasada dentro da janela de 30d ──
+      // ── Filtro: lista armazenada do e-mail (preferencial) OU janela de 30d (fallback) ──
       var include = false;
-      if (rowPraz === today) {
-        include = true; // vence hoje
-      } else if (rowPraz && rowPraz !== '—') {
-        var pp = rowPraz.split('/');
-        if (pp.length === 3) {
-          var dPrazo = new Date(+pp[2], +pp[1]-1, +pp[0]);
-          if (!isNaN(dPrazo) && dPrazo < todayDate) {
-            var diff = Math.round((todayDate - dPrazo) / 86400000);
-            if (diff <= OVERDUE_WINDOW) include = true; // atrasada ≤30d
+      if (storedIds !== null) {
+        include = !!(rowId && storedIds[rowId]); // apenas IDs que foram enviados
+      } else {
+        // fallback: janela de 30d
+        if (rowPraz === today) {
+          include = true;
+        } else if (rowPraz && rowPraz !== '—') {
+          var pp = rowPraz.split('/');
+          if (pp.length === 3) {
+            var dPrazo = new Date(+pp[2], +pp[1]-1, +pp[0]);
+            if (!isNaN(dPrazo) && dPrazo < todayDate) {
+              var diff = Math.round((todayDate - dPrazo) / 86400000);
+              if (diff <= OVERDUE_WINDOW) include = true;
+            }
           }
         }
       }
+
       // ── Status de entrega: Sheets tem precedência; fallback para PropertiesService ──
       var sheetsDelivered = rowEntrega && rowEntrega !== '—';
       var confRaw = rowId ? props.getProperty('confirm_' + rowId) : null;
@@ -179,17 +208,21 @@ function getRespTasksForPanel(resp, currentId, props) {
         confirmedAt = rowEntrega;
       } else if (confRaw) {
         try {
-          var iso = (JSON.parse(confRaw).confirmedAt||'').slice(0,10).split('-');
-          if (iso.length === 3) confirmedAt = iso[2]+'/'+iso[1]+'/'+iso[0];
+          var confObj = JSON.parse(confRaw);
+          // Usa confirmedDate (BRT) se disponível; fallback para parse do UTC ISO
+          if (confObj.confirmedDate) {
+            confirmedAt = confObj.confirmedDate;
+          } else {
+            var iso = (confObj.confirmedAt||'').slice(0,10).split('-');
+            if (iso.length === 3) confirmedAt = iso[2]+'/'+iso[1]+'/'+iso[0];
+          }
         } catch(e2) {}
       }
 
       // Exclui tarefas já entregues EXCETO a tarefa atual (que acabou de ser confirmada)
-      // Isso garante que a lista mostre apenas pendentes + a tarefa sendo confirmada
-      var isCurrent = (rowId === currentId);
+      // currentId vazio (ex: handleViewStatus sem id) → nenhuma tarefa é "atual"
+      var isCurrent = !!(currentId && rowId && rowId === String(currentId));
       if (confirmed && !isCurrent) continue;
-
-      // Aplica filtro de data somente para tarefas pendentes (entregues já foram descartadas)
       if (!include && !isCurrent) continue;
 
       result.push({
@@ -594,6 +627,27 @@ function handleSendAll(body) {
     }
   });
 
+  // Armazena lista de tarefas por responsável para "Minhas Entregas"
+  var props2 = PropertiesService.getScriptProperties();
+  var respMap = {};
+  groups.forEach(function(g) {
+    (g.tasks || []).forEach(function(t) {
+      if (!t.id) return; // ignora tarefas sem ID válido
+      var r = (t.resp || '').trim();
+      if (!r || r === '—') return;
+      if (!respMap[r]) respMap[r] = [];
+      respMap[r].push({id: String(t.id), name: t.name||'', prazo: t.prazo||''});
+    });
+  });
+  Object.keys(respMap).forEach(function(r) {
+    var rKey = 'resp_sent_' + r.trim().toLowerCase()
+      .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,60);
+    var data = {resp: r, tasks: respMap[r], sentAt: new Date().toISOString()};
+    try { props2.setProperty(rKey, JSON.stringify(data)); } catch(e) {
+      Logger.log('resp_sent store error: ' + e.message);
+    }
+  });
+
   return { ok: errs.length === 0, sent: sent, errors: errs };
 }
 
@@ -788,6 +842,7 @@ function dailyEmailJob() {
     return;
   }
   try {
+    var props = PropertiesService.getScriptProperties();
     var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
     var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
     var data  = sheet.getDataRange().getValues();
@@ -828,6 +883,11 @@ function dailyEmailJob() {
 
       // Filtra: só tarefas com prazo hoje ou atrasadas dentro da janela
       var delivered = (status==='ENTREGUE'||status==='ENTREGA ANTECIPADA'||status==='ENTREGUE COM ATRASO');
+      // Verifica também confirmações via link de e-mail (PropertiesService) que ainda não
+      // chegaram ao Sheets (ex: confirmDeliveryInSheet falhou ou sync ainda pendente)
+      if (!delivered && rowId > 0) {
+        if (props.getProperty('confirm_' + rowId)) delivered = true;
+      }
       if (delivered) continue;
       var include = false;
       if (prazo === today) { include = true; }

@@ -3561,9 +3561,9 @@ function selectMonth(key){
 
 // ── Helpers ──
 function parseBR(s){ if(!s||s==='—')return null; const[d,m,y]=s.split('/'); const dt=new Date(+y,+m-1,+d); if(!dt||isNaN(dt)||dt.getFullYear()!==+y||dt.getMonth()!==+m-1||dt.getDate()!==+d)return null; return dt; }
-function fromInputDate(v){ if(!v)return'—'; const[y,m,d]=v.split('-'); return `${d}/${m}/${y}`; }
-function toInputDate(v){ if(!v||v==='—')return''; const[d,m,y]=v.split('/'); return `${y}-${m}-${d}`; }
-function ini(n){ if(!n||n==='—')return'?'; const w=n.trim().split(/\s+/); return w.length===1?w[0].slice(0,2).toUpperCase():w.slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
+function fromInputDate(v){ if(!v)return'—'; const p=v.split('-'); if(p.length!==3||!p[0]||!p[1]||!p[2])return'—'; return `${p[2]}/${p[1]}/${p[0]}`; }
+function toInputDate(v){ if(!v||v==='—')return''; const p=v.split('/'); if(p.length!==3||!p[0]||!p[1]||!p[2])return''; return `${p[2]}-${p[1]}-${p[0]}`; }
+function ini(n){ if(!n||n==='—')return'?'; const w=n.trim().split(/\s+/).filter(x=>x.length>0); if(!w.length)return'?'; return w.length===1?w[0].slice(0,2).toUpperCase():w.slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
 function bClass(s){
   if(s==='ENTREGUE')return'entregue';
   if(s==='NO PRAZO')return'no-prazo';
@@ -3588,12 +3588,12 @@ function applyFilters(){
   const st = document.getElementById('filterStatus').value;
   const re = document.getElementById('filterResp').value;
   filtered = tasks.filter(t =>
-    (!q||t.name.toLowerCase().includes(q)||(t.note||'').toLowerCase().includes(q)||t.resp.toLowerCase().includes(q)||t.dest.toLowerCase().includes(q))&&
+    (!q||t.name.toLowerCase().includes(q)||(t.note||'').toLowerCase().includes(q)||(t.resp||'').toLowerCase().includes(q)||(t.dest||'').toLowerCase().includes(q))&&
     (!st||t.status===st)&&(!re||t.resp===re));
   filtered.sort((a,b)=>{
     if(sortKey==='prazo'){const da=parseBR(a.prazo),db=parseBR(b.prazo);if(!da&&!db)return 0;if(!da)return 1;if(!db)return -1;return(da-db)*sortDir;}
-    if(sortKey==='name')return a.name.localeCompare(b.name,'pt-BR')*sortDir;
-    if(sortKey==='resp')return a.resp.localeCompare(b.resp,'pt-BR')*sortDir;
+    if(sortKey==='name')return(a.name||'').localeCompare(b.name||'','pt-BR')*sortDir;
+    if(sortKey==='resp')return(a.resp||'').localeCompare(b.resp||'','pt-BR')*sortDir;
     return 0;
   });
   page=1; render();
@@ -3763,7 +3763,9 @@ function recalcAllStatuses() {
     if(t._edited) {
       // Tarefas com status de entrega correto: não recalcula, mas verifica mudança
       const entregue = t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO';
-      if(entregue) { if(t.status !== prev) changed = true; return; }
+      // Só preserva status de entregue se há data de entrega; do contrário recalcula.
+      // Evita que tarefas marcadas manualmente como ENTREGUE sem data fiquem ocultas.
+      if(entregue && t.entrega && t.entrega !== '—') { if(t.status !== prev) changed = true; return; }
       // Tem data de entrega mas status ainda não reflete: recalcula (dados legados ou edge-case)
       if(t.entrega && t.entrega !== '—') {
         t.status = calcStatus(t.prazo, t.entrega);
@@ -3886,6 +3888,7 @@ function restoreTask(i){
   if(!t.month||!MONTHS.find(m=>m.key===t.month)) t.month=activeMth; // corrige mês inválido
   allTasks.push(t);
   if(t.month===activeMth)tasks.push(t);
+  if(t.id>=nextId) nextId=t.id+1; // evita colisão de IDs em novas tarefas
   pushTaskToGas(t);
   saveOverrides();updateTrashBadge();renderTrashList();renderTimeline();applyFilters();showToast('↩ Tarefa restaurada!','green');markReportStale();
 }
@@ -4053,7 +4056,12 @@ function saveOverrides(){
       _new:!!t._new, _deletedAt:t._deletedAt||'',
     }));
     localStorage.setItem(TASKS_KEY, JSON.stringify({overrides, newTasks, trash: savedTrash}));
-  }catch(e){ console.warn('[Mabu] saveOverrides failed', e); }
+  }catch(e){
+    if(e && e.name === 'QuotaExceededError'){
+      showToast('⚠️ Armazenamento local cheio — dados não salvos. Esvazie a lixeira.','');
+    }
+    console.warn('[Mabu] saveOverrides failed', e);
+  }
 }
 
 function loadOverrides(){
@@ -4480,12 +4488,17 @@ async function fetchConfirmations(){
       // Se já foi entregue (qualquer tipo) e já tem data de entrega, não sobrescreve
       const jaEntregue = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO');
       if(jaEntregue && t.entrega && t.entrega!=='—') return;
-      // Converte ISO → dd/MM/yyyy sem usar new Date() para evitar desvio de fuso horário
-      // confirmedAt é UTC ISO (ex: "2026-04-06T01:00:00.000Z"); getDate() usaria hora local
-      // e poderia retornar o dia anterior em horários próximos à meia-noite no Brasil (UTC-3)
-      const isoDate = (c.confirmedAt||'').slice(0,10); // "2026-04-06"
-      const [yr, mo, da] = isoDate.split('-');
-      const fmt = (da && mo && yr) ? `${da}/${mo}/${yr}` : todayStr();
+      // Usa confirmedDate (BRT, gravado pelo GAS) se disponível — evita off-by-1 dia
+      // em confirmações próximas à meia-noite (UTC difere de BRT em 3h)
+      // Fallback: parse manual do ISO sem new Date() para evitar desvio de timezone
+      let fmt;
+      if(c.confirmedDate && /^\d{2}\/\d{2}\/\d{4}$/.test(c.confirmedDate)){
+        fmt = c.confirmedDate;
+      } else {
+        const isoDate = (c.confirmedAt||'').slice(0,10); // "2026-04-06"
+        const [yr, mo, da] = isoDate.split('-');
+        fmt = (da && mo && yr) ? `${da}/${mo}/${yr}` : todayStr();
+      }
       t.entrega = fmt;
       t.status  = calcStatus(t.prazo, fmt); // calcula corretamente (antecipada, no prazo ou com atraso)
       t._edited = true; t._dateEdited = true;
