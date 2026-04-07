@@ -1132,7 +1132,7 @@ function openModal(id){
     hint.style.display='none';
   }
   document.getElementById('modalOverlay').classList.add('open');
-  setTimeout(()=>document.getElementById('fName').focus(),100);
+  if(!_viewMode) setTimeout(()=>document.getElementById('fName').focus(),100);
 }
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('open');
@@ -1179,7 +1179,7 @@ function _goEditFromView(){
   setTimeout(()=>openModal(id),200);
 }
 function closeModalOutside(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeTrash();closeConfigModal();closeNotifyModal();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeTrash();closeConfigModal();closeNotifyModal();closeAuthModal();}});
 
 // ── Recorrente helpers ──
 function _buildMonthPills(activeMths, lockedMonth){
@@ -1676,7 +1676,6 @@ function renderPendenciasBlock(){
 
 // Abre modal de visualização (somente leitura) ao clicar em item no Dashboard
 function goToTask(month, id){
-  selectMonth(month);
   openModalView(id);
 }
 
@@ -1717,9 +1716,10 @@ function _doExportXLSX(){
   ws['!cols']=[{wch:4},{wch:52},{wch:30},{wch:24},{wch:24},{wch:12},{wch:14},{wch:12}];
   const wb=XLSX.utils.book_new();
   const mth=MONTHS.find(m=>m.key===activeMth);
-  XLSX.utils.book_append_sheet(wb,ws,mth?mth.short:'Cronograma');
+  XLSX.utils.book_append_sheet(wb,ws,mth?mth.short:'Geral');
   const today=new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
-  XLSX.writeFile(wb,`cronograma-mabu-${activeMth}-${today}.xlsx`);
+  const fname = activeMth==='geral' ? `cronograma-mabu-completo-${today}.xlsx` : `cronograma-mabu-${mth.short}-${today}.xlsx`;
+  XLSX.writeFile(wb, fname);
   showToast('✅ XLSX exportado!','green');
 }
 
@@ -2002,7 +2002,8 @@ function testGasConnection(){
     // Script tag failed — CORS blocked, but that's expected for file://
     // The sync itself uses no-cors POST which works fine
     res.style.cssText='display:block;background:var(--green-bg);color:var(--green);padding:8px 12px;border-radius:7px;font-size:12px;';
-    res.innerHTML = '✅ URL registrada! Para confirmar que o Apps Script está ativo, <a href="' + esc(url) + '" target="_blank" style="color:var(--green);font-weight:700;">abra a URL nesta aba ↗</a> e verifique se retorna ok:true no JSON.';
+    const safeUrl = url.startsWith('https://') ? esc(url) : '';
+    res.innerHTML = '✅ URL registrada! Para confirmar que o Apps Script está ativo, ' + (safeUrl ? '<a href="' + safeUrl + '" target="_blank" rel="noopener" style="color:var(--green);font-weight:700;">abra a URL nesta aba ↗</a>' : '<strong>abra a URL no navegador</strong>') + ' e verifique se retorna ok:true no JSON.';
     delete window[cbName];
   };
   document.head.appendChild(s);
