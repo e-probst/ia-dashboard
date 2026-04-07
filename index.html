@@ -1349,6 +1349,14 @@ function calcStatus(prazo, entrega) {
 
 function recalcAllStatuses() {
   const today = new Date(); today.setHours(0,0,0,0);
+  const curIdx = MONTHS.findIndex(m => m.current);
+
+  // Tarefa de mês futuro nunca é ATRASADO — protege contra prazo mal ajustado em recorrentes
+  function _isFutureMonth(t){
+    const mIdx = MONTHS.findIndex(m => m.key === t.month);
+    return mIdx > curIdx; // mês ainda não chegou
+  }
+
   let changed = false;
   allTasks.forEach(t => {
     const prev = t.status;
@@ -1356,18 +1364,20 @@ function recalcAllStatuses() {
       // Tarefas com status de entrega correto: não recalcula, mas verifica mudança
       const entregue = t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO';
       // Só preserva status de entregue se há data de entrega; do contrário recalcula.
-      // Evita que tarefas marcadas manualmente como ENTREGUE sem data fiquem ocultas.
       if(entregue && t.entrega && t.entrega !== '—') { if(t.status !== prev) changed = true; return; }
-      // Tem data de entrega mas status ainda não reflete: recalcula (dados legados ou edge-case)
       if(t.entrega && t.entrega !== '—') {
         t.status = calcStatus(t.prazo, t.entrega);
       } else {
-        // Sem data de entrega: recalcula NO PRAZO ↔ ATRASADO conforme data atual
         const dPrazo = parseBR(t.prazo);
-        if(dPrazo) t.status = dPrazo < today ? 'ATRASADO' : 'NO PRAZO';
+        if(dPrazo){
+          if(_isFutureMonth(t)) t.status = 'NO PRAZO';
+          else t.status = dPrazo < today ? 'ATRASADO' : 'NO PRAZO';
+        }
       }
     } else {
-      t.status = calcStatus(t.prazo, t.entrega);
+      const s = calcStatus(t.prazo, t.entrega);
+      // Se calculou ATRASADO mas o mês ainda não chegou → NO PRAZO
+      t.status = (s === 'ATRASADO' && _isFutureMonth(t)) ? 'NO PRAZO' : s;
     }
     if(t.status !== prev) changed = true;
   });
@@ -1622,10 +1632,13 @@ function renderPendenciasBlock(){
   const delivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
   const mLabel = k => { const m=MONTHS.find(x=>x.key===k); return m?m.short:k.toUpperCase(); };
 
-  // Pendências de hoje: prazo = hoje e não entregue (todos os meses)
-  const hoje = allTasks.filter(t => t.prazo===today && !delivered.has(t.status));
-  // Atrasadas: status ATRASADO (todos os meses)
-  const atrasadas = allTasks.filter(t => t.status==='ATRASADO');
+  const curIdx = MONTHS.findIndex(m => m.current);
+  const isFutureMth = t => MONTHS.findIndex(m => m.key === t.month) > curIdx;
+
+  // Pendências de hoje: prazo = hoje, não entregue e mês não é futuro
+  const hoje = allTasks.filter(t => t.prazo===today && !delivered.has(t.status) && !isFutureMth(t));
+  // Atrasadas: status ATRASADO (já protegido pelo recalcAllStatuses, mas garante aqui também)
+  const atrasadas = allTasks.filter(t => t.status==='ATRASADO' && !isFutureMth(t));
 
   const hojeCount   = document.getElementById('pendHojeCount');
   const atrasoCount = document.getElementById('pendAtrasoCount');
