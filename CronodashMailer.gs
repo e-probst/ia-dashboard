@@ -9,7 +9,7 @@
 //     - Executar como: Eu (minha conta Google)
 //     - Quem pode acessar: Qualquer pessoa
 //  4. Copie a URL gerada e cole no painel Cronograma Mensal (ícone ⚙)
-//  5. Execute createDailyTrigger() UMA VEZ para ativar envio às 7h
+//  5. Execute createDailyTrigger() UMA VEZ para ativar envio às 8h
 // ============================================================
 
 // ⚠️  PREENCHA COM O ID DA SUA PLANILHA GOOGLE SHEETS
@@ -609,7 +609,6 @@ function handleSendAll(body) {
   groups.forEach(function(g) {
     if (!g.email || !(g.tasks || []).length) return;
     try {
-      var todayTasks    = g.tasks.filter(function(t){ return t.status !== 'ATRASADO'; });
       var atrasadas     = g.tasks.filter(function(t){ return t.status === 'ATRASADO'; });
       var totalCount    = g.tasks.length;
       var atrasadasInfo = atrasadas.length ? ' · ' + atrasadas.length + ' em atraso' : '';
@@ -862,11 +861,11 @@ function createDailyTrigger() {
   });
   ScriptApp.newTrigger('dailyEmailJob')
     .timeBased()
-    .atHour(7)
+    .atHour(8)
     .everyDays(1)
     .inTimezone('America/Sao_Paulo')
     .create();
-  Logger.log('Trigger diário criado: dailyEmailJob às 7h (Brasília)');
+  Logger.log('Trigger diário criado: dailyEmailJob às 8h (Brasília)');
 }
 
 // ── JOB DIÁRIO ───────────────────────────────────────────────
