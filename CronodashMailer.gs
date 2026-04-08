@@ -742,7 +742,17 @@ function handleSendNow(body) {
   Object.keys(respMap).forEach(function(r) {
     var rKey = 'resp_sent_' + r.trim().toLowerCase()
       .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,60);
-    var data = {resp: r, tasks: respMap[r], sentAt: new Date().toISOString()};
+    // Merge com tarefas já existentes — send_now não deve apagar envios anteriores
+    var existingTasks = [];
+    try {
+      var prev = props2.getProperty(rKey);
+      if (prev) existingTasks = JSON.parse(prev).tasks || [];
+    } catch(e) {}
+    var existingIds = existingTasks.map(function(t){ return String(t.id); });
+    respMap[r].forEach(function(nt) {
+      if (existingIds.indexOf(String(nt.id)) === -1) existingTasks.push(nt);
+    });
+    var data = {resp: r, tasks: existingTasks, sentAt: new Date().toISOString()};
     try { props2.setProperty(rKey, JSON.stringify(data)); } catch(e) {
       Logger.log('resp_sent store error (send_now): ' + e.message);
     }
@@ -866,7 +876,7 @@ function createDailyTrigger() {
 }
 
 // ── JOB DIÁRIO ───────────────────────────────────────────────
-// Roda às 7h automaticamente; pode ser testado manualmente
+// Roda às 8h automaticamente; pode ser testado manualmente
 
 function dailyEmailJob() {
   if (!SPREADSHEET_ID) {
