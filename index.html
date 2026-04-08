@@ -917,7 +917,6 @@
   <hr class="smenu-divider">
   <button class="smenu-btn" onclick="_smenuPickDate()">📅 Informar outra data</button>
 </div>
-<input type="date" id="smenuDatePicker" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:none;padding:0" onchange="_smenuDateChosen(this.value)">
 
 <!-- Loading overlay (aguardando dados do GAS) -->
 <div class="data-loading-overlay" id="dataLoadingOverlay">
@@ -2986,16 +2985,10 @@ function _smenuApply(entrega){
 }
 function _smenuConfirm(){ _smenuApply(todayStr()); }
 function _smenuPickDate(){
-  const picker = document.getElementById('smenuDatePicker');
-  picker.value = toInputDate(todayStr());
+  const id = _smenuTaskId;
   _smenuClose();
-  try{ picker.showPicker(); }catch(e){ picker.focus(); }
-}
-function _smenuDateChosen(val){
-  document.getElementById('smenuDatePicker').style.pointerEvents='none';
-  if(!val) return;
-  const parts = val.split('-');
-  _smenuApply(`${parts[2]}/${parts[1]}/${parts[0]}`);
+  openModal(id);
+  setTimeout(()=>document.getElementById('fEntrega').focus(), 160);
 }
 // ────────────────────────────────────────────────────────────
 
