@@ -1089,15 +1089,21 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
     'ENTREGA ANTECIPADA':  { color:'#0550ae', bg:'#e0f0ff', label:'Antecipada' },
   };
 
+  // Link único "Ver minhas entregas" — usa a primeira tarefa com responsável válido
+  var firstTaskWithResp = null;
+  for (var fi = 0; fi < tasks.length; fi++) {
+    if (tasks[fi].resp && tasks[fi].resp !== '—') { firstTaskWithResp = tasks[fi]; break; }
+  }
+  var singleStatusLink = (showConfirm && gasUrl && firstTaskWithResp)
+    ? gasUrl + '?action=status&id=' + encodeURIComponent(firstTaskWithResp.id) + '&resp=' + encodeURIComponent(firstTaskWithResp.resp || '') + '&name=' + encodeURIComponent(firstTaskWithResp.name || '') + '&prazo=' + encodeURIComponent(firstTaskWithResp.prazo || '') + '&month=' + encodeURIComponent(firstTaskWithResp.month || '')
+    : '';
+
   var rows = tasks.map(function(t, idx) {
     var st          = statusMap[t.status] || { color:'#3a5080', bg:'#f0f6ff', label: t.status || '—' };
     var isDelivered = (t.status === 'ENTREGUE' || t.status === 'ENTREGA ANTECIPADA' || t.status === 'ENTREGUE COM ATRASO');
     var baseParams = '&id=' + encodeURIComponent(t.id) + '&prazo=' + encodeURIComponent(t.prazo || '') + '&name=' + encodeURIComponent(t.name || '') + '&resp=' + encodeURIComponent(t.resp || '') + '&month=' + encodeURIComponent(t.month || '');
     var confirmLink = (showConfirm && gasUrl && !isDelivered)
       ? gasUrl + '?action=confirm' + baseParams
-      : '';
-    var statusLink = (showConfirm && gasUrl && t.resp && t.resp !== '—')
-      ? gasUrl + '?action=status' + baseParams
       : '';
     var rowBg = idx % 2 === 0 ? '#ffffff' : '#f7faff';
 
@@ -1115,11 +1121,7 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
       + '<td style="padding:12px 14px;border-bottom:1px solid #eaf2fc;vertical-align:middle;text-align:center">'
       +   (confirmLink
           ? '<a href="' + confirmLink + '" style="display:inline-block;background:#1a7a4a;color:#ffffff;text-decoration:none;font-size:11px;font-weight:700;padding:6px 14px;border-radius:6px;white-space:nowrap">✅ Confirmar</a>'
-            + (statusLink ? '<br><a href="' + statusLink + '" style="display:inline-block;margin-top:5px;font-size:10px;color:#8096b8;text-decoration:none;">📋 Ver minhas entregas</a>' : '')
-          : (isDelivered
-              ? '<span style="color:#1a7a4a;font-size:12px;font-weight:700">✅ Entregue</span>'
-                + (statusLink ? '<br><a href="' + statusLink + '" style="display:inline-block;margin-top:5px;font-size:10px;color:#8096b8;text-decoration:none;">📋 Ver minhas entregas</a>' : '')
-              : ''))
+          : (isDelivered ? '<span style="color:#1a7a4a;font-size:12px;font-weight:700">✅ Entregue</span>' : ''))
       + '</td>'
       + '</tr>';
   }).join('');
@@ -1160,6 +1162,13 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
     + '<tbody>' + rows + '</tbody>'
     + '</table>'
     + '</td></tr>'
+
+    // Botão único "Ver minhas entregas"
+    + (singleStatusLink
+      ? '<tr><td style="padding:0 28px 24px;text-align:center">'
+        + '<a href="' + singleStatusLink + '" style="display:inline-block;background:#0d2d6e;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:12px 28px;border-radius:8px;letter-spacing:.3px">📋 Ver minhas entregas</a>'
+        + '</td></tr>'
+      : '')
 
     // Rodapé
     + '<tr><td style="background:#f4f8fd;padding:14px 28px;border-top:1px solid #dce8f5">'
