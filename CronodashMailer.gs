@@ -131,9 +131,20 @@ function getRespTasksForPanel(resp, currentId, props) {
   var tParts = today.split('/');
   var todayDate = new Date(+tParts[2], +tParts[1]-1, +tParts[0]);
 
-  // ── Recupera lista armazenada do último e-mail disparado para este resp ──
+  // ── Cache: evita reler planilha em cliques repetidos (TTL 2 min) ──
+  var cache    = CacheService.getScriptCache();
   var respKeyNorm = resp.trim().toLowerCase()
     .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,60);
+  var cacheKey = 'panel_' + respKeyNorm + '_' + today;
+  // Invalida cache se currentId presente (confirmação recém feita — dados mudaram)
+  if (!currentId) {
+    var cached = cache.get(cacheKey);
+    if (cached) {
+      try { return JSON.parse(cached); } catch(e) {}
+    }
+  }
+
+  // ── Recupera lista armazenada do último e-mail disparado para este resp ──
   var storedRaw = props.getProperty('resp_sent_' + respKeyNorm);
   var storedIds = null; // {id → {name, prazo}} se existir
 
@@ -148,6 +159,9 @@ function getRespTasksForPanel(resp, currentId, props) {
       }
     } catch(e) { Logger.log('resp_sent parse error: ' + e.message); }
   }
+
+  // ── Pré-carrega TODAS as confirmações de uma vez (evita N chamadas getProperty no loop) ──
+  var allProps = props.getProperties();
 
   var OVERDUE_WINDOW = 30;
 
@@ -200,8 +214,9 @@ function getRespTasksForPanel(resp, currentId, props) {
       }
 
       // ── Status de entrega: Sheets tem precedência; fallback para PropertiesService ──
+      // Usa allProps (pré-carregado) em vez de getProperty() individual — evita N round-trips de I/O
       var sheetsDelivered = rowEntrega && rowEntrega !== '—';
-      var confRaw = rowId ? props.getProperty('confirm_' + rowId) : null;
+      var confRaw = rowId ? (allProps['confirm_' + rowId] || null) : null;
       var confirmed   = sheetsDelivered || !!confRaw;
       var confirmedAt = '';
       if (sheetsDelivered) {
@@ -239,6 +254,11 @@ function getRespTasksForPanel(resp, currentId, props) {
       if ( a.confirmed && !b.confirmed) return  1;
       return prazoCmp(a.prazo) < prazoCmp(b.prazo) ? -1 : prazoCmp(a.prazo) > prazoCmp(b.prazo) ? 1 : 0;
     });
+
+    // Grava no cache (só quando não é confirmação — currentId indica dados recém mudados)
+    if (!currentId) {
+      try { cache.put(cacheKey, JSON.stringify(result), 120); } catch(e2) {}
+    }
   } catch(e) {
     Logger.log('getRespTasksForPanel erro: ' + e.message);
   }
@@ -320,10 +340,21 @@ function fmtDateBR(val) {
 }
 
 // ── GET_TASKS — Lê planilha e retorna tarefas ao dashboard ────
+var GET_TASKS_CACHE_KEY = 'get_tasks_v1';
 function handleGetTasks(callback) {
   if (!SPREADSHEET_ID) {
     return jsonpResponse({ ok: false, error: 'SPREADSHEET_ID nao configurado.' }, callback);
   }
+
+  // Cache de 20s: evita reler a planilha a cada polling do dashboard (30s)
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(GET_TASKS_CACHE_KEY);
+  if (cached) {
+    var obj = JSON.parse(cached);
+    obj.ts = new Date().toISOString(); // atualiza timestamp sem reler planilha
+    return jsonpResponse(obj, callback);
+  }
+
   try {
     var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
     var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
@@ -372,11 +403,17 @@ function handleGetTasks(callback) {
         month:   iMes     >= 0 ? String(row[iMes]     || '') : '',
       });
     }
-    return jsonpResponse({ ok: true, tasks: tasks, count: tasks.length, ts: new Date().toISOString() }, callback);
+    var result = { ok: true, tasks: tasks, count: tasks.length, ts: new Date().toISOString() };
+    try { cache.put(GET_TASKS_CACHE_KEY, JSON.stringify(result), 20); } catch(e2) {}
+    return jsonpResponse(result, callback);
   } catch (err) {
     Logger.log('handleGetTasks error: ' + err.message + ' | stack: ' + err.stack);
     return jsonpResponse({ ok: false, error: String(err.message) }, callback);
   }
+}
+
+function invalidateTasksCache() {
+  try { CacheService.getScriptCache().remove(GET_TASKS_CACHE_KEY); } catch(e) {}
 }
 
 // viewOnly=true → página de status sem ação de confirmação (link "Ver minhas entregas")
@@ -795,6 +832,7 @@ function handleSync(body) {
 
   try {
     logTasksToSheet(tasks);
+    invalidateTasksCache();
     return { ok: true, saved: tasks.length };
   } catch (err) {
     Logger.log('sync error: ' + err.message);
@@ -826,6 +864,7 @@ function handleDeleteTask(body) {
     }
 
     Logger.log('delete_task OK: id=' + id + ' mes=' + month);
+    invalidateTasksCache();
     return { ok: true };
   } catch (err) {
     Logger.log('delete_task error: ' + err.message);
@@ -842,6 +881,7 @@ function handleUpdateTask(body) {
 
   try {
     logTasksToSheet([task]);
+    invalidateTasksCache();
     return { ok: true };
   } catch (err) {
     Logger.log('update_task error: ' + err.message);
