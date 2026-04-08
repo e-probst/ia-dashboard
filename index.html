@@ -1174,6 +1174,9 @@ function openModalView(id){
   document.getElementById('modalTitle').textContent='👁 Visualizar Tarefa';
   ['fName','fNote','fResp','fDest','fEmail','fPrazo','fEntrega','fStatus','fRecorrente']
     .forEach(fid=>{const el=document.getElementById(fid);if(el)el.disabled=true;});
+  // Em modo visualização mostra o e-mail efetivo (padrão quando vazio)
+  const emailEl = document.getElementById('fEmail');
+  if(emailEl && !emailEl.value.trim()) emailEl.value = DEFAULT_EMAIL;
   document.getElementById('btnDelete').style.display='none';
   document.getElementById('btnSave').style.display='none';
   document.getElementById('btnGoEdit').style.display='flex';
