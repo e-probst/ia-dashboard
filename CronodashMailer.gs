@@ -699,50 +699,7 @@ function handleSendAll(body) {
 
 // Template simplificado do e-mail geral (evita falha com múltiplas tarefas)
 function buildSummaryEmail(tasks, today) {
-  var statusMap = {
-    'ATRASADO':            { color:'#c0182c', bg:'#fde8eb', label:'Atrasado' },
-    'ENTREGUE COM ATRASO': { color:'#c05000', bg:'#fff4e0', label:'Entregue c/ Atraso' },
-    'NO PRAZO':            { color:'#1352b8', bg:'#e8f2fc', label:'No Prazo' },
-    'ENTREGUE':            { color:'#1a7a4a', bg:'#e6f5ee', label:'Entregue' },
-    'ENTREGA ANTECIPADA':  { color:'#0550ae', bg:'#e0f0ff', label:'Antecipada' },
-  };
-
-  var rows = tasks.map(function(t, idx) {
-    var st     = statusMap[t.status] || { color:'#3a5080', bg:'#f0f6ff', label: t.status || '—' };
-    var rowBg  = idx % 2 === 0 ? '#ffffff' : '#f7faff';
-    return '<tr style="background:' + rowBg + '">'
-      + '<td width="38%" style="padding:11px 14px;border-bottom:1px solid #eaf2fc;font-size:13px;font-weight:700;color:#0a1e45">' + esc(t.name) + (t.note ? '<br><span style="font-size:11px;color:#8096b8;font-weight:400;font-style:italic">📝 ' + esc(t.note) + '</span>' : '') + '</td>'
-      + '<td width="18%" style="padding:11px 14px;border-bottom:1px solid #eaf2fc;font-size:12px;color:#3a5080">' + esc(t.resp || '—') + '</td>'
-      + '<td width="18%" style="padding:11px 14px;border-bottom:1px solid #eaf2fc;font-size:12px;color:#3a5080">' + esc(t.dest || '—') + '</td>'
-      + '<td width="12%" style="padding:11px 14px;border-bottom:1px solid #eaf2fc;font-size:12px;color:#3a5080;text-align:center">' + esc(t.prazo || '—') + '</td>'
-      + '<td width="14%" style="padding:11px 14px;border-bottom:1px solid #eaf2fc;text-align:center"><span style="background:' + st.bg + ';color:' + st.color + ';border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700">' + st.label + '</span></td>'
-      + '</tr>';
-  }).join('');
-
-  return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'
-    + '<body style="margin:0;padding:0;background:#eef4fb;font-family:Arial,sans-serif">'
-    + '<table width="100%" cellpadding="0" cellspacing="0" style="background:#eef4fb;padding:28px 0"><tr><td align="center">'
-    + '<table width="680" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(13,45,110,.12)">'
-    + '<tr><td style="background:linear-gradient(135deg,#0d2d6e,#1a52b8);padding:24px 28px">'
-    + '<div style="font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:2px;margin-bottom:5px">Cronograma Mensal · Mabu Hospitalidade</div>'
-    + '<div style="font-size:20px;font-weight:700;color:#fff">Resumo Geral · Tarefas com Prazo Hoje</div>'
-    + '<div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:4px">📅 ' + today + ' &nbsp;·&nbsp; ' + tasks.length + ' tarefa' + (tasks.length !== 1 ? 's' : '') + '</div>'
-    + '</td></tr>'
-    + '<tr><td style="padding:20px 28px 24px">'
-    + '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #dce8f5;border-radius:10px;overflow:hidden">'
-    + '<thead><tr style="background:#1352b8">'
-    + '<th width="38%" style="padding:10px 14px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Tarefa</th>'
-    + '<th width="18%" style="padding:10px 14px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Responsável</th>'
-    + '<th width="18%" style="padding:10px 14px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Destinatário</th>'
-    + '<th width="12%" style="padding:10px 14px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Prazo</th>'
-    + '<th width="14%" style="padding:10px 14px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Status</th>'
-    + '</tr></thead>'
-    + '<tbody>' + rows + '</tbody>'
-    + '</table></td></tr>'
-    + '<tr><td style="background:#f4f8fd;padding:14px 28px;border-top:1px solid #dce8f5">'
-    + '<div style="font-size:11px;color:#8096b8">Mensagem automática · <strong style="color:#1352b8">Cronograma Mensal</strong> · Mabu Hospitalidade &amp; Entretenimento</div>'
-    + '</td></tr></table>'
-    + '</td></tr></table></body></html>';
+  return buildEmailHtml(tasks, 'Resumo Geral · Tarefas com Prazo Hoje', false, true);
 }
 
 // E-mail individual para o responsável (com botão de confirmação)
@@ -808,7 +765,7 @@ function handleSendSummary(body) {
   try {
     var today   = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
     var subject = '[Cronograma Mensal] Resumo das tarefas do dia — ' + today;
-    var html    = buildEmailHtml(tasks, 'Resumo Geral · Tarefas com Prazo Hoje', false);
+    var html    = buildEmailHtml(tasks, 'Resumo Geral · Tarefas com Prazo Hoje', false, true);
     MailApp.sendEmail({
       to:       ADMIN_EMAIL,
       name:     EMAIL_FROM_NAME,
@@ -1117,7 +1074,8 @@ function logTasksToSheet(tasks) {
 
 // ── TEMPLATE HTML DO E-MAIL ──────────────────────────────────
 
-function buildEmailHtml(tasks, titulo, showConfirm) {
+function buildEmailHtml(tasks, titulo, showConfirm, compact) {
+  compact = compact === true;
   var today  = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
   var gasUrl = GAS_WEB_APP_URL;
 
@@ -1147,21 +1105,25 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
       : '';
     var rowBg = idx % 2 === 0 ? '#ffffff' : '#f7faff';
 
+    var pad = compact ? '7px 10px' : '11px 12px';
     return '<tr style="background:' + rowBg + '">'
-      + '<td style="padding:12px 14px;border-bottom:1px solid #eaf2fc;vertical-align:middle">'
-      +   '<div style="font-size:13px;font-weight:700;color:#0a1e45">' + esc(t.name) + '</div>'
-      +   (t.note ? '<div style="font-size:11px;color:#8096b8;margin-top:2px;font-style:italic">📝 ' + esc(t.note) + '</div>' : '')
+      + '<td style="padding:' + pad + ';border-bottom:1px solid #eaf2fc;vertical-align:middle;word-break:break-word;overflow-wrap:break-word">'
+      +   '<div style="font-size:' + (compact ? '12' : '13') + 'px;font-weight:700;color:#0a1e45;line-height:1.4">' + esc(t.name) + '</div>'
+      +   (!compact && t.note ? '<div style="font-size:11px;color:#8096b8;margin-top:2px;font-style:italic;line-height:1.3">' + esc(t.note) + '</div>' : '')
       + '</td>'
-      + '<td style="padding:12px 14px;border-bottom:1px solid #eaf2fc;font-size:12px;color:#3a5080;vertical-align:middle;white-space:nowrap">' + esc(t.resp || '—') + '</td>'
-      + '<td style="padding:12px 14px;border-bottom:1px solid #eaf2fc;font-size:12px;color:#3a5080;vertical-align:middle;white-space:nowrap;text-align:center">' + esc(t.prazo || '—') + '</td>'
-      + '<td style="padding:12px 14px;border-bottom:1px solid #eaf2fc;vertical-align:middle;text-align:center">'
-      +   '<span style="display:inline-block;background:' + st.bg + ';color:' + st.color + ';border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">' + st.label + '</span>'
+      + '<td style="padding:' + pad + ';border-bottom:1px solid #eaf2fc;font-size:12px;color:#3a5080;vertical-align:middle;word-break:break-word">' + esc(t.resp || '—') + '</td>'
+      + '<td style="padding:' + pad + ';border-bottom:1px solid #eaf2fc;font-size:12px;color:#3a5080;vertical-align:middle;word-break:break-word">' + esc(t.dest || '—') + '</td>'
+      + '<td style="padding:' + pad + ';border-bottom:1px solid #eaf2fc;font-size:12px;color:#3a5080;vertical-align:middle;text-align:center;white-space:nowrap">' + esc(t.prazo || '—') + '</td>'
+      + '<td style="padding:' + pad + ';border-bottom:1px solid #eaf2fc;vertical-align:middle;text-align:center">'
+      +   '<span style="display:inline-block;background:' + st.bg + ';color:' + st.color + ';border-radius:99px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap">' + st.label + '</span>'
       + '</td>'
-      + '<td style="padding:12px 14px;border-bottom:1px solid #eaf2fc;vertical-align:middle;text-align:center">'
-      +   (confirmLink
-          ? '<a href="' + confirmLink + '" style="display:inline-block;background:#1a7a4a;color:#ffffff;text-decoration:none;font-size:11px;font-weight:700;padding:6px 14px;border-radius:6px;white-space:nowrap">✅ Confirmar</a>'
-          : (isDelivered ? '<span style="color:#1a7a4a;font-size:12px;font-weight:700">✅ Entregue</span>' : ''))
-      + '</td>'
+      + (showConfirm
+        ? '<td style="padding:' + pad + ';border-bottom:1px solid #eaf2fc;vertical-align:middle;text-align:center">'
+          + (confirmLink
+            ? '<a href="' + confirmLink + '" style="display:inline-block;background:#1a7a4a;color:#ffffff;text-decoration:none;font-size:11px;font-weight:700;padding:7px 12px;border-radius:6px;white-space:nowrap">✅ Confirmar</a>'
+            : (isDelivered ? '<span style="color:#1a7a4a;font-size:12px;font-weight:700">✅</span>' : ''))
+          + '</td>'
+        : '')
       + '</tr>';
   }).join('');
 
@@ -1170,7 +1132,7 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
     + '<body style="margin:0;padding:0;background:#eef4fb;font-family:Arial,sans-serif">'
     + '<table width="100%" cellpadding="0" cellspacing="0" style="background:#eef4fb;padding:28px 0">'
     + '<tr><td align="center">'
-    + '<table width="680" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(13,45,110,.12)">'
+    + '<table width="980" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(13,45,110,.12)">'
 
     // Cabeçalho — título à esquerda, botão "Ver minhas entregas" à direita
     + '<tr><td style="background:linear-gradient(135deg,#0d2d6e 0%,#1a52b8 100%);padding:24px 28px">'
@@ -1196,14 +1158,22 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
 
     // Tabela
     + '<tr><td style="padding:20px 28px 24px">'
-    + '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #dce8f5">'
+    + '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #dce8f5;table-layout:fixed">'
     + '<thead>'
     + '<tr style="background:#1352b8">'
-    + '<th style="padding:10px 14px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:55%">Tarefa</th>'
-    + '<th style="padding:10px 14px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:15%;white-space:nowrap">Responsável</th>'
-    + '<th style="padding:10px 14px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:11%;white-space:nowrap">Prazo</th>'
-    + '<th style="padding:10px 14px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:13%">Status</th>'
-    + (showConfirm ? '<th style="padding:10px 14px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:6%">Ação</th>' : '')
+    + (compact
+      ? '<th style="padding:8px 10px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:38%">Tarefa</th>'
+        + '<th style="padding:8px 10px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:15%">Responsável</th>'
+        + '<th style="padding:8px 10px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:15%">Destinatário</th>'
+        + '<th style="padding:8px 10px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:12%">Prazo</th>'
+        + '<th style="padding:8px 10px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:20%">Status</th>'
+      : '<th style="padding:10px 12px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:35%">Tarefa</th>'
+        + '<th style="padding:10px 12px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:14%">Responsável</th>'
+        + '<th style="padding:10px 12px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:14%">Destinatário</th>'
+        + '<th style="padding:10px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:10%">Prazo</th>'
+        + '<th style="padding:10px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:13%">Status</th>'
+        + (showConfirm ? '<th style="padding:10px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:14%">Ação</th>' : '')
+    )
     + '</tr>'
     + '</thead>'
     + '<tbody>' + rows + '</tbody>'

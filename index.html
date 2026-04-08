@@ -2169,8 +2169,8 @@ async function fetchTasksFromGas(){
           // Tarefa sem edição local: aceita atualização do Sheets (ex: edição direta na planilha)
           if(st.name)         existing.name  = st.name;
           if(st.note  != null) existing.note  = st.note;
-          if(st.resp)         existing.resp  = st.resp || existing.resp;
-          if(st.dest)         existing.dest  = st.dest || existing.dest;
+          if(st.resp != null) existing.resp  = st.resp || existing.resp;
+          if(st.dest != null) existing.dest  = st.dest || existing.dest;
           if(st.email != null) existing.email = st.email;
           if(st.month)        existing.month = st.month;
         }
