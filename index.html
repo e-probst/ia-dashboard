@@ -1880,8 +1880,8 @@ function loadOverrides(){
 }
 
 const GAS_KEY = 'mabu_gas_config';
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec';
-const DEFAULT_EMAIL = 'e.probst@mymabu.com.br'; // e-mail padrão quando a tarefa não tem e-mail cadastrado
+const DEFAULT_GAS_URL = ''; // Configure via botão ⚙️ no dashboard
+const DEFAULT_EMAIL = ''; // E-mail padrão: não há — tarefas sem e-mail são exibidas separadamente
 
 function loadGasConfig(){
   try {
@@ -2338,11 +2338,16 @@ function _buildNotifyGroups(){
   const all = getTasksDueToday();
   const map = {};
   all.forEach(t => {
-    const key = t.email;
+    const key = t.email && t.email.trim() ? t.email.trim() : '__sem_email__';
     if(!map[key]) map[key] = [];
     map[key].push({task: t, delivered: false});
   });
-  return Object.entries(map).map(([email, tasks]) => ({email, tasks, status:'pending', msg:''}));
+  return Object.entries(map).map(([email, tasks]) => ({
+    email: email === '__sem_email__' ? '' : email,
+    tasks,
+    status: email === '__sem_email__' ? 'err' : 'pending',
+    msg: email === '__sem_email__' ? 'Sem e-mail cadastrado' : '',
+  }));
 }
 
 function openNotifyModal(){
@@ -2360,7 +2365,6 @@ function openNotifyModal(){
 function closeNotifyModal(){ document.getElementById('notifyOverlay').classList.remove('open'); }
 function closeNotifyOutside(e){ if(e.target===document.getElementById('notifyOverlay')) closeNotifyModal(); }
 
-const MONTH_LABELS = {jan:'Janeiro 2026',fev:'Fevereiro 2026',mar:'Março 2026',abr:'Abril 2026',mai:'Maio 2026',jun:'Junho 2026',jul:'Julho 2026',ago:'Agosto 2026',set:'Setembro 2026',out:'Outubro 2026',nov:'Novembro 2026',dez:'Dezembro 2026'};
 
 function renderNotifyList(){
   const list = document.getElementById('notifyList');
@@ -2867,7 +2871,7 @@ function renderReportSection(containerId, tasks, badgeType) {
     return;
   }
 
-  const monthLabel = key => (MONTH_LABELS[key] || key).replace(' 2026', '');
+  const monthLabel = key => { const m = MONTHS.find(x=>x.key===key); return m ? m.label.replace(/\s+\d{4}$/,'') : key; };
 
   el.innerHTML = tasks.map((t, i) => {
     const noteHtml = t.note ? `<div class="report-row-note">${esc(t.note)}</div>` : '';
