@@ -1852,12 +1852,16 @@ function loadOverrides(){
 }
 
 const GAS_KEY = 'mabu_gas_config';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec';
 const DEFAULT_EMAIL = 'e.probst@mymabu.com.br'; // e-mail padrão quando a tarefa não tem e-mail cadastrado
 
 function loadGasConfig(){
   try {
-    return JSON.parse(localStorage.getItem(GAS_KEY)||'{}');
-  } catch(e){ return {}; }
+    const raw = localStorage.getItem(GAS_KEY);
+    // Nunca configurado (raw===null) → usa URL padrão para funcionar online sem configuração manual
+    if(raw === null) return { url: DEFAULT_GAS_URL };
+    return JSON.parse(raw)||{};
+  } catch(e){ return { url: DEFAULT_GAS_URL }; }
 }
 
 function saveGasConfig(){
@@ -1878,7 +1882,9 @@ function saveGasConfig(){
 
 function clearGasConfig(){
   if(!confirm('Remover configuração?')) return;
-  localStorage.removeItem(GAS_KEY);
+  // Salva objeto com url vazia (não remove) para distinguir de "nunca configurado"
+  // Se removesse, loadGasConfig() voltaria a usar DEFAULT_GAS_URL automaticamente
+  localStorage.setItem(GAS_KEY, JSON.stringify({ url: '' }));
   document.getElementById('gasUrl').value='';
   updateConfigBtnState();
   showToast('🗑 Configuração removida','');
@@ -2123,7 +2129,8 @@ async function fetchTasksFromGas(){
   try{
     // Usa JSONP para evitar bloqueio de CORS (funciona de file:// e Google Drive)
     const data = await fetchJsonp(cfg.url + '?action=get_tasks');
-    if(!data.ok || !data.tasks || !data.tasks.length){ _hideDataLoading(); return; }
+    if(!data.ok){ _hideDataLoading(); console.warn('[GAS] fetchTasksFromGas: erro do servidor:', data.error); showToast('⚠️ Erro ao carregar dados: ' + (data.error||'Apps Script retornou erro'),''); return; }
+    if(!data.tasks || !data.tasks.length){ _hideDataLoading(); return; }
 
     const trashedIds = new Set(trash.map(t=>String(t.id)));
     let added = 0, updated = 0;
@@ -2186,6 +2193,8 @@ async function fetchTasksFromGas(){
   }catch(e){
     _hideDataLoading();
     console.warn('[GAS] fetchTasksFromGas failed:', e);
+    // Só mostra toast de erro no primeiro carregamento (quando allTasks ainda está vazio)
+    if(allTasks.length === 0) showToast('⚠️ Não foi possível conectar ao Apps Script. Verifique a URL nas configurações (⚙️).','');
   }
 }
 
