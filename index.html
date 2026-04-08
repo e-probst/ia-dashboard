@@ -340,8 +340,30 @@
 
   @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
   @media(max-width:1024px){.main{padding:20px 20px 48px;}.main--shared{padding-bottom:0;}.main--content{padding-top:10px;}}
-  @media(max-width:900px){.kpi-row{flex-wrap:wrap;}.kpi-card{min-width:calc(50% - 6px);}.main{padding:16px 14px 40px;}.main--shared{padding-bottom:0;}.main--content{padding-top:8px;}}
-  @media(max-width:600px){thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none;}.main{padding:14px 12px 36px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}}
+  @media(max-width:900px){.kpi-row{flex-wrap:wrap;}.kpi-card{min-width:calc(50% - 6px);}.main{padding:16px 14px 40px;}.main--shared{padding-bottom:0;}.main--content{padding-top:8px;}.pend-cols{grid-template-columns:1fr;}}
+  @media(max-width:600px){
+    thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none;}
+    .main{padding:14px 10px 36px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}
+    header{flex-wrap:wrap;height:auto;padding:10px 14px;gap:6px;}
+    .header-brand{flex:1;}
+    .brand-sub{display:none;}
+    .nav-tabs{order:3;width:100%;justify-content:flex-start;gap:4px;}
+    .nav-tab{font-size:12px;padding:7px 12px;}
+    .header-right{gap:8px;}
+    .header-date{display:none;}
+    .btn-new{padding:7px 14px;font-size:12px;}
+    .table-wrap{overflow-x:auto;}
+    .kpi-card{min-width:calc(50% - 6px);}
+    .pend-cols{grid-template-columns:1fr;}
+    .controls{gap:6px;}
+    .search-wrap{min-width:0;flex:1;}
+    .filter-select{min-width:0;flex:1;}
+    .page-title{font-size:20px;}
+  }
+  @media(max-width:400px){
+    .kpi-card{min-width:100%;}
+    .nav-tab{font-size:11px;padding:6px 10px;}
+  }
 
   /* ── EmailJS / Notify ── */
   .btn-notify{padding:8px 14px;border:1px solid #1a7a4a;border-radius:8px;background:transparent;font-family:"Nunito",sans-serif;font-size:13px;color:#1a7a4a;cursor:pointer;font-weight:700;transition:all .2s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
