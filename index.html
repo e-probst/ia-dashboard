@@ -800,7 +800,7 @@
         <div class="form-group"><label class="form-label">Responsável</label><input class="form-input" id="fResp" type="text" placeholder="Nome do responsável"></div>
         <div class="form-group"><label class="form-label">Destinatário</label><input class="form-input" id="fDest" type="text" placeholder="Para quem será enviado"></div>
       </div>
-      <div class="form-row single"><div class="form-group"><label class="form-label">✉ E-mail do Responsável <span style="font-weight:400;opacity:.6;font-size:10px">(vazio = e.probst@mymabu.com.br)</span></label><input class="form-input" id="fEmail" type="email" placeholder="Deixe vazio para usar e-mail padrão"></div></div>
+      <div class="form-row single" id="rowEmail"><div class="form-group"><label class="form-label">✉ E-mail do Responsável</label><input class="form-input" id="fEmail" type="email" placeholder="Deixe vazio para usar e-mail padrão"></div></div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Prazo</label><input class="form-input" id="fPrazo" type="date" onchange="previewStatus()"></div>
         <div class="form-group"><label class="form-label">Data de Entrega</label><input class="form-input" id="fEntrega" type="date" onchange="previewStatus()"></div>
@@ -1163,6 +1163,7 @@ function closeModal(){
     document.getElementById('btnSave').style.display='';
     document.getElementById('btnGoEdit').style.display='none';
     document.getElementById('btnModalCancel').textContent='Cancelar';
+    document.getElementById('rowEmail').style.display='';
   }
 }
 function openModalView(id){
@@ -1173,9 +1174,8 @@ function openModalView(id){
   document.getElementById('modalTitle').textContent='👁 Visualizar Tarefa';
   ['fName','fNote','fResp','fDest','fEmail','fPrazo','fEntrega','fStatus','fRecorrente']
     .forEach(fid=>{const el=document.getElementById(fid);if(el)el.disabled=true;});
-  // Em modo visualização mostra o e-mail efetivo (padrão quando vazio)
-  const emailEl = document.getElementById('fEmail');
-  if(emailEl && !emailEl.value.trim()) emailEl.value = DEFAULT_EMAIL;
+  // Oculta campo de e-mail no modo visualização (dado sensível / link online)
+  document.getElementById('rowEmail').style.display = 'none';
   document.getElementById('btnDelete').style.display='none';
   document.getElementById('btnSave').style.display='none';
   document.getElementById('btnGoEdit').style.display='flex';
