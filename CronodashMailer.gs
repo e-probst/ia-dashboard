@@ -1173,11 +1173,20 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
     + '<tr><td align="center">'
     + '<table width="680" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(13,45,110,.12)">'
 
-    // Cabeçalho
+    // Cabeçalho — título à esquerda, botão "Ver minhas entregas" à direita
     + '<tr><td style="background:linear-gradient(135deg,#0d2d6e 0%,#1a52b8 100%);padding:24px 28px">'
-    + '<div style="font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:2px;margin-bottom:5px">Cronograma Mensal · Mabu Hospitalidade</div>'
-    + '<div style="font-size:20px;font-weight:700;color:#ffffff">' + titulo + '</div>'
-    + '<div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:4px">📅 ' + today + ' &nbsp;·&nbsp; ' + tasks.length + ' tarefa' + (tasks.length !== 1 ? 's' : '') + '</div>'
+    + '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
+    +   '<td style="vertical-align:middle">'
+    +     '<div style="font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:2px;margin-bottom:5px">Cronograma Mensal · Mabu Hospitalidade</div>'
+    +     '<div style="font-size:20px;font-weight:700;color:#ffffff">' + titulo + '</div>'
+    +     '<div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:4px">📅 ' + today + ' &nbsp;·&nbsp; ' + tasks.length + ' tarefa' + (tasks.length !== 1 ? 's' : '') + '</div>'
+    +   '</td>'
+    +   (singleStatusLink
+      ? '<td style="vertical-align:middle;text-align:right;white-space:nowrap;padding-left:20px">'
+        + '<a href="' + singleStatusLink + '" style="display:inline-block;background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;padding:9px 18px;border-radius:7px;white-space:nowrap;letter-spacing:.2px">📋 Ver minhas entregas</a>'
+        + '</td>'
+      : '<td></td>')
+    + '</tr></table>'
     + '</td></tr>'
 
     // Instrução
@@ -1202,13 +1211,6 @@ function buildEmailHtml(tasks, titulo, showConfirm) {
     + '<tbody>' + rows + '</tbody>'
     + '</table>'
     + '</td></tr>'
-
-    // Botão único "Ver minhas entregas"
-    + (singleStatusLink
-      ? '<tr><td style="padding:0 28px 24px;text-align:center">'
-        + '<a href="' + singleStatusLink + '" style="display:inline-block;background:#0d2d6e;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:12px 28px;border-radius:8px;letter-spacing:.3px">📋 Ver minhas entregas</a>'
-        + '</td></tr>'
-      : '')
 
     // Rodapé
     + '<tr><td style="background:#f4f8fd;padding:14px 28px;border-top:1px solid #dce8f5">'
