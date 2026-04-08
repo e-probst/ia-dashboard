@@ -357,8 +357,9 @@
     .header-right{order:3;width:100%;justify-content:flex-end;padding-top:2px;gap:8px;}
     .header-date{display:none;}
     .btn-new{padding:6px 12px;font-size:12px;}
-    /* KPI */
-    .kpi-card{min-width:calc(50% - 5px);}
+    /* KPI — sempre 2 por linha */
+    .kpi-card{min-width:calc(50% - 5px);flex:1 1 calc(50% - 5px);}
+    .kpi-card.progress{min-width:calc(50% - 5px);}
     /* Pendências — mantém 2 colunas, reduz gap e padding */
     .pend-cols{gap:10px;}
     .pend-block{padding:14px 12px 12px;}
@@ -379,7 +380,7 @@
     .tl-count{font-size:9px;}
   }
   @media(max-width:400px){
-    .kpi-card{min-width:100%;}
+    .kpi-card{min-width:calc(50% - 5px);flex:1 1 calc(50% - 5px);}
     .nav-tabs{margin-left:4px;}
     .nav-tab{font-size:10.5px;padding:5px 8px;}
     .brand-logo{height:32px;width:32px;}
