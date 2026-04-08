@@ -36,10 +36,11 @@ var API_SECRET      = ''; // Chave exigida em todas as ações POST destrutivas
 // Preencha os valores abaixo e clique em ▶ Executar esta função:
 function setupConfig() {
   var p = PropertiesService.getScriptProperties();
+  // ⚠️  Preencha os valores abaixo antes de executar esta função:
   p.setProperties({
-    'SPREADSHEET_ID':  '1FMoWYDqersAk8zXy_a_ZDShUDU-s339eOC9f5P2mKfY',
-    'ADMIN_EMAIL':     'e.probst@mymabu.com.br',
-    'GAS_WEB_APP_URL': 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec',
+    'SPREADSHEET_ID':  'COLE_O_ID_DA_PLANILHA_AQUI',
+    'ADMIN_EMAIL':     'COLE_SEU_EMAIL_AQUI',
+    'GAS_WEB_APP_URL': 'COLE_A_URL_DO_WEB_APP_AQUI',
     'API_SECRET':      p.getProperty('API_SECRET') || Utilities.getUuid().replace(/-/g,''),
   });
   var secret = p.getProperty('API_SECRET');
@@ -862,7 +863,7 @@ function handleDeleteTask(body) {
     Logger.log('delete_task: ID inválido recebido: ' + JSON.stringify(id));
     return { ok: false, error: 'ID inválido' };
   }
-  if (!SPREADSHEET_ID || id === undefined || id === null) return { ok: true, skipped: true };
+  if (!SPREADSHEET_ID) return { ok: false, error: 'SPREADSHEET_ID não configurado' };
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 

@@ -1018,7 +1018,8 @@ function renderTimeline(){
     const curIdx=MONTHS.findIndex(x=>x.current);
     const isPast=mIdx<curIdx, isFut=mIdx>curIdx;
     const mHols=getHolidaysInMonth(m.key);
-    return `<div class="tl-month ${m.key===activeMth?'active':''} ${m.current?'current':''} ${isPast?'past':''} ${isFut?'future':''}" title="${mHols.length?mHols.map(h=>h.date+' — '+h.name).join('\n'):''}" onclick="selectMonth('${m.key}')">
+    const holTitle = mHols.length ? mHols.map(h=>esc(h.date)+'—'+esc(h.name)).join('\n') : '';
+    return `<div class="tl-month ${m.key===activeMth?'active':''} ${m.current?'current':''} ${isPast?'past':''} ${isFut?'future':''}" title="${holTitle}" onclick="selectMonth('${m.key}')">
       <div class="tl-dot">${mHols.length?'<span class="tl-holiday-dot"></span>':''}</div>
       <span class="tl-name">${m.label}</span>
       <span class="tl-count">${mTasks.length} tarefas · ${pct}% ok</span>
@@ -2461,6 +2462,7 @@ async function fireOneTask(gIdx, tIdx){
       const check = await fetchJsonp(cfg.url+'?action=get_confirmations',6000);
       if(check.lastSend && check.lastSend.ts > sentAt) ok = check.lastSend.ok !== false;
     }catch(e2){}
+    item.delivered = true;
     if(btn){ btn.className='btn-send-one sent'; btn.textContent='📧 Enviado ✓'; }
     showToast(`✅ E-mail enviado — ${item.task.name.slice(0,40)}`,'green');
   }catch(err){
