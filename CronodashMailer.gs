@@ -12,13 +12,39 @@
 //  5. Execute createDailyTrigger() UMA VEZ para ativar envio às 8h
 // ============================================================
 
-// ⚠️  PREENCHA COM O ID DA SUA PLANILHA GOOGLE SHEETS
-//     URL da planilha: https://docs.google.com/spreadsheets/d/<<ID_AQUI>>/edit
-//     Cole apenas o trecho entre /d/ e /edit
-var SPREADSHEET_ID = '1FMoWYDqersAk8zXy_a_ZDShUDU-s339eOC9f5P2mKfY';
+// ── CONFIGURAÇÃO — dados sensíveis ficam no PropertiesService, não no código ──
+// Execute setupConfig() UMA VEZ no editor do GAS para configurar.
+// Isso evita expor credenciais no GitHub.
+var SPREADSHEET_ID  = '';
 var EMAIL_FROM_NAME = 'Cronograma Mensal · Mabu Hospitalidade';
-var ADMIN_EMAIL     = 'e.probst@mymabu.com.br';
-var GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec';
+var ADMIN_EMAIL     = '';
+var GAS_WEB_APP_URL = '';
+var API_SECRET      = ''; // Chave exigida em todas as ações POST destrutivas
+
+// Carrega configuração do PropertiesService a cada execução (nunca hardcoded)
+(function _loadConfig() {
+  try {
+    var p = PropertiesService.getScriptProperties();
+    SPREADSHEET_ID  = p.getProperty('SPREADSHEET_ID')  || '';
+    ADMIN_EMAIL     = p.getProperty('ADMIN_EMAIL')      || '';
+    GAS_WEB_APP_URL = p.getProperty('GAS_WEB_APP_URL')  || '';
+    API_SECRET      = p.getProperty('API_SECRET')       || '';
+  } catch(e) { Logger.log('_loadConfig error: ' + e.message); }
+})();
+
+// ── SETUP INICIAL — execute UMA VEZ no editor após implantar ─────────────────
+// Preencha os valores abaixo e clique em ▶ Executar esta função:
+function setupConfig() {
+  var p = PropertiesService.getScriptProperties();
+  p.setProperties({
+    'SPREADSHEET_ID':  'COLE_O_ID_DA_PLANILHA_AQUI',   // ID entre /d/ e /edit na URL do Sheets
+    'ADMIN_EMAIL':     'COLE_SEU_EMAIL_ADMIN_AQUI',      // e-mail do administrador
+    'GAS_WEB_APP_URL': 'COLE_A_URL_DO_WEB_APP_AQUI',    // URL gerada ao implantar
+    'API_SECRET':      Utilities.getUuid().replace(/-/g,''), // gerado automaticamente
+  });
+  var secret = p.getProperty('API_SECRET');
+  Logger.log('✅ Config salva! Cole este segredo no dashboard (⚙ → Chave de API): ' + secret);
+}
 
 // ── ROTEADOR PRINCIPAL ───────────────────────────────────────
 
@@ -552,6 +578,15 @@ function doPost(e) {
     var action = body.action || '';
     var result;
 
+    // Valida segredo da API em todas as ações destrutivas/sensíveis
+    // O segredo é configurado via setupConfig() e salvo no PropertiesService
+    var PROTECTED_ACTIONS = ['sync','update_task','delete_task','send_all','send_now','send_summary','send_test'];
+    if (API_SECRET && PROTECTED_ACTIONS.indexOf(action) >= 0 && body.secret !== API_SECRET) {
+      Logger.log('doPost: acesso negado — segredo inválido para ação=' + action);
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'Não autorizado' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     if      (action === 'send_test')    result = handleSendTest(body);
     else if (action === 'send_all')     result = handleSendAll(body);
     else if (action === 'send_now')     result = handleSendNow(body);
@@ -578,7 +613,7 @@ function jsonResponse(obj) {
 // Disparado pelo botão "Enviar teste" no painel de configuração
 
 function handleSendTest(body) {
-  var to   = body.to   || ADMIN_EMAIL;
+  var to   = ADMIN_EMAIL; // Sempre para o admin — ignora body.to para evitar spam abuse
   var task = body.task || {};
 
   var subject = '[Cronograma Mensal] Teste de disparo automático — ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
@@ -813,6 +848,12 @@ function handleSync(body) {
 function handleDeleteTask(body) {
   var id    = body.id;
   var month = body.month || '';
+  // Valida que id é um inteiro positivo (evita enumeração e abuso)
+  var numId = Number(id);
+  if (!id || isNaN(numId) || numId <= 0 || numId !== Math.floor(numId) || numId > 2147483647) {
+    Logger.log('delete_task: ID inválido recebido: ' + JSON.stringify(id));
+    return { ok: false, error: 'ID inválido' };
+  }
   if (!SPREADSHEET_ID || id === undefined || id === null) return { ok: true, skipped: true };
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);

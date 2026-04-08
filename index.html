@@ -854,15 +854,22 @@
           <div class="config-step"><span class="config-step-num">1</span><span>Abra <a class="config-link" href="https://script.google.com" target="_blank">script.google.com</a> → Novo projeto</span></div>
           <div class="config-step"><span class="config-step-num">2</span><span>Cole o código do arquivo <strong>CronodashMailer.gs</strong> (baixado junto com o dashboard)</span></div>
           <div class="config-step"><span class="config-step-num">3</span><span>Clique em <strong>Implantar → Nova implantação → Aplicativo da Web</strong><br>— Executar como: <strong>Eu (minha conta)</strong><br>— Quem pode acessar: <strong>Qualquer pessoa</strong> (obrigatório para o dashboard enviar dados)<br>— Clique em <strong>Implantar</strong> e autorize as permissões</span></div>
-          <div class="config-step"><span class="config-step-num">4</span><span>Copie a <strong>URL do Web App</strong> e cole abaixo</span></div>
-          <div class="config-step"><span class="config-step-num">5</span><span>No editor do Apps Script, execute <strong>createDailyTrigger()</strong> UMA VEZ para agendar o envio diário às 7h</span></div>
-          <div class="config-step"><span class="config-step-num">6</span><span>Para testar, execute a função <strong>sendTestEmail()</strong> no editor — ela envia um e-mail de verificação</span></div>
+          <div class="config-step"><span class="config-step-num">4</span><span>No editor, execute <strong>setupConfig()</strong> UMA VEZ — preencha seus dados e clique em ▶. Copie a <strong>Chave de API</strong> exibida no log.</span></div>
+          <div class="config-step"><span class="config-step-num">5</span><span>Copie a <strong>URL do Web App</strong> e a <strong>Chave de API</strong> e cole abaixo</span></div>
+          <div class="config-step"><span class="config-step-num">6</span><span>No editor do Apps Script, execute <strong>createDailyTrigger()</strong> UMA VEZ para agendar o envio diário às 8h</span></div>
+          <div class="config-step"><span class="config-step-num">7</span><span>Para testar, clique em <strong>📧 Enviar teste</strong> abaixo</span></div>
         </div>
       </div>
       <div class="form-row single">
         <div class="form-group">
           <label class="form-label">URL do Web App (Google Apps Script)</label>
           <input class="form-input" id="gasUrl" type="url" placeholder="https://script.google.com/macros/s/XXXXXXXX/exec">
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label class="form-label">Chave de API (gerada pelo setupConfig() no editor)</label>
+          <input class="form-input" id="gasSecret" type="password" placeholder="Cole aqui o segredo exibido no log do GAS">
         </div>
       </div>
       <div id="gasTestResult" style="display:none;margin-top:4px;font-size:12px;padding:8px 12px;border-radius:7px;"></div>
@@ -1889,7 +1896,8 @@ function saveGasConfig(){
   if(!url || !url.startsWith('https://script.google.com')){
     showToast('⚠️ Cole uma URL válida do Google Apps Script',''); return;
   }
-  const cfg = { url };
+  const secret = document.getElementById('gasSecret').value.trim();
+  const cfg = { url, secret };
   localStorage.setItem(GAS_KEY, JSON.stringify(cfg));
   updateConfigBtnState();
   closeConfigModal();
@@ -1904,8 +1912,9 @@ function clearGasConfig(){
   if(!confirm('Remover configuração?')) return;
   // Salva objeto com url vazia (não remove) para distinguir de "nunca configurado"
   // Se removesse, loadGasConfig() voltaria a usar DEFAULT_GAS_URL automaticamente
-  localStorage.setItem(GAS_KEY, JSON.stringify({ url: '' }));
+  localStorage.setItem(GAS_KEY, JSON.stringify({ url: '', secret: '' }));
   document.getElementById('gasUrl').value='';
+  document.getElementById('gasSecret').value='';
   updateConfigBtnState();
   showToast('🗑 Configuração removida','');
 }
@@ -1924,7 +1933,8 @@ function updateConfigBtnState(){
 
 function openConfigModal(){
   const cfg = loadGasConfig();
-  document.getElementById('gasUrl').value = cfg.url||'';
+  document.getElementById('gasUrl').value    = cfg.url||'';
+  document.getElementById('gasSecret').value = cfg.secret||'';
   document.getElementById('gasTestResult').style.display='none';
   document.getElementById('gasEmailTestResult').style.display='none';
   const btnTest = document.getElementById('btnSendTest');
@@ -1949,7 +1959,7 @@ async function sendTestEmailViaGas(){
 
   btn.disabled = true;
   btn.textContent = '⏳ Enviando…';
-  if(res){ res.style.cssText='display:block;background:var(--blue-pale);color:var(--blue-main);padding:10px 14px;border-radius:7px;'; res.textContent='⏳ Disparando e-mail de teste para e.probst@mymabu.com.br…'; }
+  if(res){ res.style.cssText='display:block;background:var(--blue-pale);color:var(--blue-main);padding:10px 14px;border-radius:7px;'; res.textContent='⏳ Disparando e-mail de teste para o administrador…'; }
 
   try {
     // Send via no-cors POST (can't read response, but Apps Script will process it)
@@ -1958,13 +1968,12 @@ async function sendTestEmailViaGas(){
       headers: {'Content-Type': 'text/plain'},
       body: JSON.stringify({
         action: 'send_test',
-        to: 'e.probst@mymabu.com.br',
+        secret: cfg.secret||'',
         task: {
-          name:   'TESTE — Cronograma Mensal Mabu: verificação de disparo automático',
-          note:   'Este é um e-mail de teste do sistema Cronograma Mensal.',
-          resp:   'Elias Luan Probst Schlender',
-          dest:   'Contabilidade',
-          email:  'e.probst@mymabu.com.br',
+          name:   'TESTE — Cronograma Mensal: verificação de disparo automático',
+          note:   '📝 Este é um e-mail de teste do sistema Cronograma Mensal.',
+          resp:   'Administrador',
+          dest:   'Administrador',
           prazo:  todayStr(),
           entrega:'—',
           status: 'NO PRAZO',
@@ -1978,7 +1987,7 @@ async function sendTestEmailViaGas(){
     btn.textContent = '📧 Enviar teste';
     if(res){
       res.style.cssText='display:block;background:var(--green-bg);color:var(--green);padding:10px 14px;border-radius:7px;';
-      res.innerHTML = '✅ Requisição enviada ao Apps Script!<br><small style="opacity:.8">Verifique a caixa de entrada de <strong>e.probst@mymabu.com.br</strong> em alguns instantes.<br>Se não chegar, vá ao Apps Script → Execuções para ver o log.</small>';
+      res.innerHTML = '✅ Requisição enviada ao Apps Script!<br><small style="opacity:.8">Verifique a caixa de entrada do administrador em alguns instantes.<br>Se não chegar, vá ao Apps Script → Execuções para ver o log.</small>';
     }
     showToast('✅ Teste de e-mail disparado!', 'green');
 
@@ -2058,7 +2067,7 @@ async function syncTasksToGas(){
     await fetch(cfg.url, {
       method:'POST',
       headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'sync', tasks: edited }),
+      body: JSON.stringify({ action:'sync', secret: cfg.secret||'', tasks: edited }),
       mode:'no-cors',
     });
     // Limpa _edited apenas em tarefas entregues (status final imutável) para evitar
@@ -2079,7 +2088,7 @@ async function forceSyncAllToGas(){
     await fetch(cfg.url, {
       method:'POST',
       headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'sync', tasks: allTasks }),
+      body: JSON.stringify({ action:'sync', secret: cfg.secret||'', tasks: allTasks }),
       mode:'no-cors',
     });
     showToast('✅ Todas as tarefas enviadas ao Sheets!','green');
@@ -2097,7 +2106,7 @@ async function pushTaskToGas(task){
     await fetch(cfg.url, {
       method:'POST',
       headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'update_task', task }),
+      body: JSON.stringify({ action:'update_task', secret: cfg.secret||'', task }),
       mode:'no-cors',
     });
   }catch(e){ console.warn('[GAS] push failed:', e); }
@@ -2226,7 +2235,7 @@ async function deleteTaskFromGas(id, month){
     await fetch(cfg.url, {
       method:'POST',
       headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'delete_task', id, month: month||'' }),
+      body: JSON.stringify({ action:'delete_task', secret: cfg.secret||'', id, month: month||'' }),
       mode:'no-cors',
     });
   }catch(e){ console.warn('[GAS] delete failed:', e); }
@@ -2443,7 +2452,7 @@ async function fireOneTask(gIdx, tIdx){
     await fetch(cfg.url, {
       method:'POST',
       headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'send_now', tasks:[item.task] }),
+      body: JSON.stringify({ action:'send_now', secret: cfg.secret||'', tasks:[item.task] }),
       mode:'no-cors',
     });
     await new Promise(r=>setTimeout(r,2500));
@@ -2497,7 +2506,7 @@ async function fireEmails(){
     await fetch(cfg.url, {
       method: 'POST',
       headers: {'Content-Type':'text/plain'},
-      body: JSON.stringify({ action: 'send_all', groups, tasks: tasksFallback }),
+      body: JSON.stringify({ action: 'send_all', secret: cfg.secret||'', groups, tasks: tasksFallback }),
       mode: 'no-cors',
     });
     // no-cors não permite ler a resposta; aguarda o GAS processar e verifica via JSONP
