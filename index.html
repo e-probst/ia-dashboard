@@ -342,12 +342,12 @@
   @media(max-width:1024px){.main{padding:20px 20px 48px;}.main--shared{padding-bottom:0;}.main--content{padding-top:10px;}}
   @media(max-width:900px){.kpi-row{flex-wrap:wrap;}.kpi-card{min-width:calc(50% - 6px);}.main{padding:16px 14px 40px;}.main--shared{padding-bottom:0;}.main--content{padding-top:8px;}}
   @media(max-width:600px){
-    /* Tabela */
+    /* ── Tabela ── */
     thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none;}
     .table-wrap{overflow-x:auto;}
-    /* Main padding */
+    /* ── Main ── */
     .main{padding:12px 10px 32px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}
-    /* Header: 2 linhas — logo+tabs em cima, botões embaixo */
+    /* ── Header: logo + tabs na mesma linha, botões abaixo ── */
     header{flex-wrap:wrap;height:auto;padding:8px 12px;gap:4px;align-items:center;}
     .header-brand{flex:1;min-width:0;}
     .brand-name{font-size:14px;}
@@ -357,33 +357,74 @@
     .header-right{order:3;width:100%;justify-content:flex-end;padding-top:2px;gap:8px;}
     .header-date{display:none;}
     .btn-new{padding:6px 12px;font-size:12px;}
-    /* KPI — sempre 2 por linha */
+    /* ── KPI — sempre 2 por linha ── */
     .kpi-card{min-width:calc(50% - 5px);flex:1 1 calc(50% - 5px);}
     .kpi-card.progress{min-width:calc(50% - 5px);}
-    /* Pendências — mantém 2 colunas, reduz gap e padding */
+    /* ── Pendências — 2 colunas, padding reduzido ── */
     .pend-cols{gap:10px;}
     .pend-block{padding:14px 12px 12px;}
     .pend-col-title{font-size:10px;}
     .pend-item-name{font-size:11.5px;}
     .pend-item-meta{font-size:10px;}
-    /* Controles */
+    /* ── Controles ── */
     .controls{gap:6px;flex-wrap:wrap;}
     .search-wrap{min-width:0;flex:1 1 160px;}
     .filter-select{min-width:0;flex:1 1 120px;}
-    /* Títulos */
+    /* ── Títulos ── */
     .page-title{font-size:20px;}
     .page-subtitle{font-size:11.5px;}
-    /* Timeline */
+    /* ── Timeline ── */
     .timeline-wrap{padding:10px 12px;}
     .tl-month{min-width:70px;}
     .tl-name{font-size:10px;}
     .tl-count{font-size:9px;}
+    /* ── Modal tarefa — padding compacto ── */
+    .modal-body{padding:14px 14px;gap:12px;}
+    .modal-header{padding:14px 16px 12px;}
+    .form-row{gap:10px;}
+    /* ── Modal notify — padding compacto ── */
+    .notify-modal{max-height:88vh;}
+    .notify-group-header{padding:8px 12px;gap:6px;}
+    .notify-task-row{padding:8px 12px 8px 18px;gap:8px;}
+    .notify-task-name{font-size:11.5px;}
+    .notify-footer{padding:10px 14px;flex-wrap:wrap;gap:8px;}
+    .notify-footer-info{font-size:11px;width:100%;}
+    .btn-fire{width:100%;justify-content:center;padding:10px;}
+    /* ── Modal lixeira ── */
+    .trash-item{padding:10px 14px;gap:8px;}
+    /* ── Auth box — não transbordar em telas < 360px ── */
+    .auth-box{width:calc(100vw - 32px);max-width:340px;}
+    /* ── Config modal ── */
+    #configBox{width:calc(100vw - 24px)!important;}
+    /* ── Relatório ── */
+    .report-summary{padding:12px 12px;gap:8px;}
+    .report-summary-item{min-width:calc(50% - 4px);padding:12px 8px;}
+    .report-summary-num{font-size:22px;}
+    /* ── Toast ── */
+    .toast{bottom:16px;right:12px;left:12px;max-width:none;}
   }
   @media(max-width:400px){
     .kpi-card{min-width:calc(50% - 5px);flex:1 1 calc(50% - 5px);}
     .nav-tabs{margin-left:4px;}
     .nav-tab{font-size:10.5px;padding:5px 8px;}
     .brand-logo{height:32px;width:32px;}
+    .pend-cols{gap:6px;}
+  }
+  /* ── Landscape: tela deitada (altura pequena) ── */
+  @media(orientation:landscape) and (max-height:500px){
+    header{padding:5px 12px;gap:2px;}
+    .nav-tab{padding:4px 10px;font-size:11px;}
+    .brand-logo{height:30px;width:30px;}
+    .main{padding:10px 14px 24px;}
+    .modal{max-height:96vh;}
+    .notify-modal{max-height:96vh;}
+    .trash-modal{max-height:96vh;}
+    .auth-box{max-height:96vh;overflow-y:auto;}
+    .kpi-row{flex-wrap:nowrap;}
+    .kpi-card{min-width:0;flex:1;}
+    .kpi-card.progress{min-width:0;}
+    .timeline-wrap{padding:8px 12px;}
+    .pend-cols{gap:14px;}
   }
 
   /* ── EmailJS / Notify ── */
