@@ -37,13 +37,21 @@ var API_SECRET      = ''; // Chave exigida em todas as ações POST destrutivas
 function setupConfig() {
   var p = PropertiesService.getScriptProperties();
   p.setProperties({
-    'SPREADSHEET_ID':  'COLE_O_ID_DA_PLANILHA_AQUI',   // ID entre /d/ e /edit na URL do Sheets
-    'ADMIN_EMAIL':     'COLE_SEU_EMAIL_ADMIN_AQUI',      // e-mail do administrador
-    'GAS_WEB_APP_URL': 'COLE_A_URL_DO_WEB_APP_AQUI',    // URL gerada ao implantar
-    'API_SECRET':      Utilities.getUuid().replace(/-/g,''), // gerado automaticamente
+    'SPREADSHEET_ID':  '1FMoWYDqersAk8zXy_a_ZDShUDU-s339eOC9f5P2mKfY',
+    'ADMIN_EMAIL':     'e.probst@mymabu.com.br',
+    'GAS_WEB_APP_URL': 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec',
+    'API_SECRET':      p.getProperty('API_SECRET') || Utilities.getUuid().replace(/-/g,''),
   });
   var secret = p.getProperty('API_SECRET');
-  Logger.log('✅ Config salva! Cole este segredo no dashboard (⚙ → Chave de API): ' + secret);
+  Logger.log('✅ Config salva! Chave de API: ' + secret);
+}
+
+function checkConfig() {
+  var p = PropertiesService.getScriptProperties();
+  Logger.log('SPREADSHEET_ID:  ' + p.getProperty('SPREADSHEET_ID'));
+  Logger.log('ADMIN_EMAIL:     ' + p.getProperty('ADMIN_EMAIL'));
+  Logger.log('GAS_WEB_APP_URL: ' + p.getProperty('GAS_WEB_APP_URL'));
+  Logger.log('API_SECRET:      ' + p.getProperty('API_SECRET'));
 }
 
 // ── ROTEADOR PRINCIPAL ───────────────────────────────────────
