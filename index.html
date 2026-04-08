@@ -367,6 +367,11 @@
   .btn-mark-done:hover{background:var(--green);color:white;}
   .btn-mark-done:disabled{opacity:.4;cursor:not-allowed;}
   .btn-mark-done.done{background:var(--green-bg);color:var(--green);border-color:var(--green);cursor:default;}
+  .btn-send-one{flex-shrink:0;padding:5px 12px;border:1px solid var(--blue-main);border-radius:7px;background:transparent;font-family:"Nunito",sans-serif;font-size:11px;font-weight:700;color:var(--blue-main);cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .btn-send-one:hover{background:var(--blue-main);color:white;}
+  .btn-send-one:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-send-one.sent{background:var(--blue-pale);color:var(--blue-main);border-color:var(--blue-main);cursor:default;}
+  .btn-send-one.err{border-color:var(--red);color:var(--red);}
   .notify-status.done{background:var(--green-bg);color:var(--green);}
 
   .notify-empty{text-align:center;padding:52px 20px;color:var(--text-muted);}
@@ -2368,6 +2373,7 @@ function renderNotifyList(){
             ${t.note?`<span>${esc(t.note)}</span>`:''}
           </div>
         </div>
+        <button class="btn-send-one" id="bso-${gIdx}-${tIdx}" onclick="fireOneTask(${gIdx},${tIdx})" title="Enviar e-mail para esta tarefa" ${group.status==='ok'?'disabled':''}>📧 Enviar</button>
         ${!isDone
           ?`<button class="btn-mark-done" onclick="markTaskDelivered(${gIdx},${tIdx})" title="Registrar entrega">✅ Entregue</button>`
           :`<button class="btn-mark-done done" disabled>✅ Entregue</button>`}
@@ -2408,6 +2414,38 @@ function markTaskDelivered(gIdx, tIdx){
   applyFilters();
   markReportStale();
   showToast('✅ Entrega registrada — ' + item.task.name.slice(0,40), 'green');
+}
+
+async function fireOneTask(gIdx, tIdx){
+  const cfg = loadGasConfig();
+  if(!cfg.url){ showToast('⚠️ Configure o Apps Script primeiro (⚙️)',''); return; }
+  const group = notifyItems[gIdx];
+  const item  = group?.tasks[tIdx];
+  if(!item) return;
+
+  const btn = document.getElementById(`bso-${gIdx}-${tIdx}`);
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Enviando…'; }
+
+  try{
+    const sentAt = new Date().toISOString();
+    await fetch(cfg.url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'send_now', tasks:[item.task] }),
+      mode:'no-cors',
+    });
+    await new Promise(r=>setTimeout(r,2500));
+    let ok = true;
+    try{
+      const check = await fetchJsonp(cfg.url+'?action=get_confirmations',6000);
+      if(check.lastSend && check.lastSend.ts > sentAt) ok = check.lastSend.ok !== false;
+    }catch(e2){}
+    if(btn){ btn.className='btn-send-one sent'; btn.textContent='📧 Enviado ✓'; }
+    showToast(`✅ E-mail enviado — ${item.task.name.slice(0,40)}`,'green');
+  }catch(err){
+    if(btn){ btn.disabled=false; btn.className='btn-send-one err'; btn.textContent='📧 Erro — tentar de novo'; }
+    showToast('❌ Erro ao enviar','');
+  }
 }
 
 async function fireEmails(){
