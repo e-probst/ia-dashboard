@@ -230,6 +230,11 @@
   .badge.pendente{background:var(--amber-bg);color:var(--amber);} .badge.pendente .bdot{background:var(--amber);}
   .badge.antecipada{background:#e0f0ff;color:#0550ae;border:1px solid #b0d4f5;} .badge.antecipada .bdot{background:#0550ae;}
   .badge.com-atraso{background:#fff0e0;color:#8a3800;border:1px solid #f5c897;} .badge.com-atraso .bdot{background:#c05000;}
+  .badge-clickable{cursor:pointer;transition:opacity .12s;} .badge-clickable:hover{opacity:.75;}
+  #statusMenu{position:fixed;z-index:9999;background:#fff;border:1px solid #dce8f5;border-radius:10px;box-shadow:0 6px 24px rgba(13,45,110,.16);padding:5px;min-width:190px;display:none;}
+  .smenu-btn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 12px;border:none;background:none;font-family:"Nunito",sans-serif;font-size:12px;font-weight:700;cursor:pointer;border-radius:7px;color:var(--text-primary);}
+  .smenu-btn:hover{background:var(--blue-ghost);}
+  .smenu-divider{border:none;border-top:1px solid var(--border-light);margin:4px 0;}
   .act-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all .15s;font-size:12px;}
   .act-btn:hover{background:var(--blue-main);color:white;border-color:var(--blue-main);}
   .empty{text-align:center;padding:60px 20px;color:var(--text-muted);}
@@ -905,6 +910,14 @@
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- Mini-menu de status inline na tabela -->
+<div id="statusMenu">
+  <button class="smenu-btn" onclick="_smenuConfirm()">✅ Confirmar entrega hoje</button>
+  <hr class="smenu-divider">
+  <button class="smenu-btn" onclick="_smenuPickDate()">📅 Informar outra data</button>
+</div>
+<input type="date" id="smenuDatePicker" style="position:fixed;opacity:0;pointer-events:none;z-index:-1" onchange="_smenuDateChosen(this.value)">
 
 <!-- Loading overlay (aguardando dados do GAS) -->
 <div class="data-loading-overlay" id="dataLoadingOverlay">
@@ -1599,7 +1612,7 @@ function render(){
           <td>${t.dest&&t.dest!=='—'?`<span class="chip"><span class="avatar dest">${ini(t.dest)}</span>${esc(t.dest)}</span>`:'<span class="date-empty">—</span>'}</td>
           <td><span class="date-cell${isRowToday?' today-date':''}">${t.prazo}</span></td>
           <td>${entCell}</td>
-          <td><span class="badge ${bc}"><span class="bdot"></span>${bLabel(t.status)}</span></td>
+          <td>${_smenuDelivered.has(t.status)?`<span class="badge ${bc}"><span class="bdot"></span>${bLabel(t.status)}</span>`:`<span class="badge ${bc} badge-clickable" onclick="openStatusMenu(event,${t.id})" title="Confirmar entrega"><span class="bdot"></span>${bLabel(t.status)} ▾</span>`}</td>
           <td><button class="act-btn" title="Editar tarefa" onclick="openModal(${t.id})"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></td>
         </tr>`;
       });
@@ -2374,9 +2387,6 @@ function renderNotifyList(){
           </div>
         </div>
         <button class="btn-send-one" id="bso-${gIdx}-${tIdx}" onclick="fireOneTask(${gIdx},${tIdx})" title="Enviar e-mail para esta tarefa" ${group.status==='ok'?'disabled':''}>📧 Enviar</button>
-        ${!isDone
-          ?`<button class="btn-mark-done" onclick="markTaskDelivered(${gIdx},${tIdx})" title="Registrar entrega">✅ Entregue</button>`
-          :`<button class="btn-mark-done done" disabled>✅ Entregue</button>`}
       </div>`;
     }).join('');
 
@@ -2937,6 +2947,55 @@ function _doDownload() {
     showToast('⚠️ Erro ao gerar imagem', '');
   });
 }
+
+// ── Mini-menu de status inline ──────────────────────────────
+let _smenuTaskId = null;
+const _smenuDelivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
+
+function openStatusMenu(event, taskId){
+  const t = allTasks.find(x=>String(x.id)===String(taskId));
+  if(!t || _smenuDelivered.has(t.status)) return;
+  _smenuTaskId = taskId;
+  const menu = document.getElementById('statusMenu');
+  menu.style.display = 'block';
+  const r = event.currentTarget.getBoundingClientRect();
+  const mw = 200, mh = 80;
+  let left = r.left, top = r.bottom + 4;
+  if(left + mw > window.innerWidth) left = window.innerWidth - mw - 8;
+  if(top + mh > window.innerHeight) top = r.top - mh - 4;
+  menu.style.left = left + 'px';
+  menu.style.top  = top + 'px';
+  event.stopPropagation();
+}
+function _smenuClose(){ document.getElementById('statusMenu').style.display='none'; _smenuTaskId=null; }
+document.addEventListener('click', e=>{ if(!document.getElementById('statusMenu').contains(e.target)) _smenuClose(); });
+
+function _smenuApply(entrega){
+  const t = allTasks.find(x=>String(x.id)===String(_smenuTaskId));
+  if(!t) return;
+  t.entrega = entrega;
+  t.status  = calcStatus(t.prazo, entrega);
+  t._edited = true; t._dateEdited = true;
+  saveOverrides(); pushTaskToGas(t);
+  recalcAllStatuses(); renderTimeline(); applyFilters(); updateNotifyBadge(); markReportStale();
+  showToast(`✅ Entrega registrada — ${t.name.slice(0,40)}`, 'green');
+  _smenuClose();
+}
+function _smenuConfirm(){ _smenuApply(todayStr()); }
+function _smenuPickDate(){
+  const picker = document.getElementById('smenuDatePicker');
+  const r = document.getElementById('statusMenu').getBoundingClientRect();
+  picker.style.left = r.left+'px'; picker.style.top = r.top+'px';
+  picker.style.opacity='0'; picker.style.pointerEvents='auto';
+  picker.value = ''; picker.click();
+}
+function _smenuDateChosen(val){
+  document.getElementById('smenuDatePicker').style.pointerEvents='none';
+  if(!val) return;
+  const parts = val.split('-');
+  _smenuApply(`${parts[2]}/${parts[1]}/${parts[0]}`);
+}
+// ────────────────────────────────────────────────────────────
 
 init();
 
