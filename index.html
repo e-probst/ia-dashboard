@@ -342,27 +342,43 @@
   @media(max-width:1024px){.main{padding:20px 20px 48px;}.main--shared{padding-bottom:0;}.main--content{padding-top:10px;}}
   @media(max-width:900px){.kpi-row{flex-wrap:wrap;}.kpi-card{min-width:calc(50% - 6px);}.main{padding:16px 14px 40px;}.main--shared{padding-bottom:0;}.main--content{padding-top:8px;}.pend-cols{grid-template-columns:1fr;}}
   @media(max-width:600px){
+    /* Tabela */
     thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none;}
-    .main{padding:14px 10px 36px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}
-    header{flex-wrap:wrap;height:auto;padding:10px 14px;gap:6px;}
-    .header-brand{flex:1;}
-    .brand-sub{display:none;}
-    .nav-tabs{order:3;width:100%;justify-content:flex-start;gap:4px;}
-    .nav-tab{font-size:12px;padding:7px 12px;}
-    .header-right{gap:8px;}
-    .header-date{display:none;}
-    .btn-new{padding:7px 14px;font-size:12px;}
     .table-wrap{overflow-x:auto;}
-    .kpi-card{min-width:calc(50% - 6px);}
+    /* Main padding */
+    .main{padding:12px 10px 32px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}
+    /* Header: 2 linhas — logo+tabs em cima, botões embaixo */
+    header{flex-wrap:wrap;height:auto;padding:8px 12px;gap:4px;align-items:center;}
+    .header-brand{flex:1;min-width:0;}
+    .brand-name{font-size:14px;}
+    .brand-sub{display:none;}
+    .nav-tabs{order:2;flex:none;margin-left:8px;padding:3px;gap:2px;}
+    .nav-tab{font-size:11.5px;padding:5px 10px;}
+    .header-right{order:3;width:100%;justify-content:flex-end;padding-top:2px;gap:8px;}
+    .header-date{display:none;}
+    .btn-new{padding:6px 12px;font-size:12px;}
+    /* KPI */
+    .kpi-card{min-width:calc(50% - 5px);}
+    /* Pendências */
     .pend-cols{grid-template-columns:1fr;}
-    .controls{gap:6px;}
-    .search-wrap{min-width:0;flex:1;}
-    .filter-select{min-width:0;flex:1;}
+    /* Controles */
+    .controls{gap:6px;flex-wrap:wrap;}
+    .search-wrap{min-width:0;flex:1 1 160px;}
+    .filter-select{min-width:0;flex:1 1 120px;}
+    /* Títulos */
     .page-title{font-size:20px;}
+    .page-subtitle{font-size:11.5px;}
+    /* Timeline */
+    .timeline-wrap{padding:10px 12px;}
+    .tl-month{min-width:70px;}
+    .tl-name{font-size:10px;}
+    .tl-count{font-size:9px;}
   }
   @media(max-width:400px){
     .kpi-card{min-width:100%;}
-    .nav-tab{font-size:11px;padding:6px 10px;}
+    .nav-tabs{margin-left:4px;}
+    .nav-tab{font-size:10.5px;padding:5px 8px;}
+    .brand-logo{height:32px;width:32px;}
   }
 
   /* ── EmailJS / Notify ── */
