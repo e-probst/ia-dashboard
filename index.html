@@ -212,6 +212,10 @@
   tbody tr.row td:last-child{padding:11px 8px;text-align:center;}
   .task-name{font-weight:600;max-width:440px;line-height:1.38;font-size:13px;}
   .task-note{display:block;font-size:11px;color:var(--blue-mid);font-weight:400;margin-top:2px;}
+  .task-mobile-meta{display:none;flex-wrap:wrap;align-items:center;gap:5px 8px;margin-top:5px;}
+  .mm-person{font-size:11px;color:var(--text-muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+  .mm-prazo{font-size:11px;color:var(--text-secondary);font-weight:700;white-space:nowrap;}
+  .mm-prazo.today-date{color:var(--red);}
   .chip{display:inline-flex;align-items:center;gap:4px;background:var(--blue-ghost);border:1px solid var(--border);border-radius:99px;padding:2px 9px 2px 5px;font-size:11.5px;color:var(--text-secondary);white-space:nowrap;font-weight:500;max-width:195px;overflow:hidden;text-overflow:ellipsis;}
   .avatar{width:17px;height:17px;border-radius:50%;background:linear-gradient(135deg,var(--blue-main),var(--blue-light));color:white;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;flex-shrink:0;}
   .avatar.dest{background:linear-gradient(135deg,var(--blue-dark),var(--blue-mid));}
@@ -342,8 +346,8 @@
   @media(max-width:1024px){.main{padding:20px 20px 48px;}.main--shared{padding-bottom:0;}.main--content{padding-top:10px;}}
   @media(max-width:900px){.kpi-row{flex-wrap:wrap;}.kpi-card{min-width:calc(50% - 6px);}.main{padding:16px 14px 40px;}.main--shared{padding-bottom:0;}.main--content{padding-top:8px;}}
   @media(max-width:600px){
-    /* ── Tabela: mostra só Atividade + Responsável (sem Destinatário) ── */
-    thead th:nth-child(n+4),tbody td:nth-child(n+4){display:none;}
+    /* ── Tabela: mostra só Atividade (info extra no task-mobile-meta) ── */
+    thead th:nth-child(n+3),tbody td:nth-child(n+3){display:none;}
     .table-wrap{overflow-x:auto;}
     /* ── Main ── */
     .main{padding:12px 10px 32px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}
@@ -387,11 +391,11 @@
     /* ── Controles ── */
     .controls{gap:6px;flex-wrap:wrap;padding:10px 12px;}
     .search-wrap{min-width:0;flex:1 1 100%;}
-    .filter-select{min-width:0;flex:1 1 100px;}
-    .btn-clear{flex:0 0 auto;padding:7px 12px;font-size:12px;}
+    .filter-select{min-width:0;flex:1 1 calc(50% - 6px);}
+    .btn-clear{flex:0 0 auto;padding:7px 10px;font-size:11.5px;}
     .results-count{display:none;}
-    .btn-export{flex:1;justify-content:center;font-size:12px;padding:7px 10px;}
-    .btn-notify{flex:1;justify-content:center;font-size:12px;padding:7px 10px;}
+    .btn-export{flex:1;justify-content:center;font-size:11.5px;padding:7px 8px;}
+    .btn-notify{flex:1;justify-content:center;font-size:11.5px;padding:7px 8px;}
     /* ── Títulos ── */
     .page-header{margin-bottom:12px;}
     .page-title{font-size:20px;}
@@ -401,9 +405,10 @@
     .tl-month{min-width:52px;}
     .tl-name{font-size:10.5px;}
     .tl-count{font-size:9px;white-space:nowrap;}
-    /* ── Tabela mobile: nome completo + Responsável mais estreito ── */
+    /* ── Tabela mobile: nome completo + meta info abaixo ── */
     .task-name{white-space:normal;line-height:1.3;font-size:12px;}
-    thead th[id="th-resp"],tbody td:nth-child(3){width:100px!important;}
+    .task-mobile-meta{display:flex;}
+    tbody tr.row td{padding:9px 10px;}
     /* ── Modal tarefa — padding compacto ── */
     .modal-body{padding:14px 14px;gap:12px;}
     .modal-header{padding:14px 16px 12px;}
@@ -1738,9 +1743,13 @@ function render(){
         const entCell=`<span class="ent-cell" onclick="clickEntrega(${t.id})" title="Clique para registrar data de entrega">${hasEnt?`<span class="date-done">${t.entrega}</span>`:`<span class="date-empty">—</span>`}<span class="ent-icon">${hasEnt?'✏':'📅'}</span></span>`;
         const isRowToday=(t.prazo===todayStr());
         const rowHol=getHolidaysForDate(t.prazo);
+        const mmResp=(t.resp&&t.resp!=='—')?`<span class="mm-person">👤 ${esc(t.resp)}${(t.dest&&t.dest!=='—')?` › ${esc(t.dest)}`:''}</span>`:'';
+        const mmPrazo=(t.prazo&&t.prazo!=='—')?`<span class="mm-prazo${isRowToday?' today-date':''}">📅 ${t.prazo}</span>`:'';
+        const mmBadge=`<span class="badge ${bc}" style="font-size:9.5px;padding:2px 7px"><span class="bdot"></span>${bLabel(t.status)}</span>`;
+        const mobileMeta=`<div class="task-mobile-meta">${mmResp}${mmPrazo}${mmBadge}</div>`;
         html+=`<tr class="row${isRowToday?' today-row':''}">
           <td class="row-num">${gi}</td>
-          <td><div class="task-name">${esc(t.name)}${t.recurring?'<span title="Tarefa recorrente" style="font-size:10px;opacity:.55;margin-left:4px">🔁</span>':''}${t.note?`<span class="task-note">${esc(t.note)}</span>`:''}${isRowToday&&t.status!=='ENTREGUE'&&t.status!=='ENTREGA ANTECIPADA'&&t.status!=='ENTREGUE COM ATRASO'?'<span class="today-badge">⚡ HOJE</span>':''}</div></td>
+          <td><div class="task-name">${esc(t.name)}${t.recurring?'<span title="Tarefa recorrente" style="font-size:10px;opacity:.55;margin-left:4px">🔁</span>':''}${t.note?`<span class="task-note">${esc(t.note)}</span>`:''}${isRowToday&&t.status!=='ENTREGUE'&&t.status!=='ENTREGA ANTECIPADA'&&t.status!=='ENTREGUE COM ATRASO'?'<span class="today-badge">⚡ HOJE</span>':''}</div>${mobileMeta}</td>
           <td>${t.resp&&t.resp!=='—'?`<span class="chip"><span class="avatar">${ini(t.resp)}</span>${esc(t.resp)}</span>`:'<span class="date-empty">—</span>'}</td>
           <td>${t.dest&&t.dest!=='—'?`<span class="chip"><span class="avatar dest">${ini(t.dest)}</span>${esc(t.dest)}</span>`:'<span class="date-empty">—</span>'}</td>
           <td><span class="date-cell${isRowToday?' today-date':''}">${t.prazo}</span></td>
