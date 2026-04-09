@@ -2787,15 +2787,22 @@ function buildExportCard(){
 
   function rows(list, isAtraso){
     if(!list.length) return `<div style="padding:36px 28px;text-align:center;font-size:16px;color:#8a9bbf;font-style:italic">${isAtraso?'Nenhuma tarefa atrasada ✅':'Nenhuma pendência para hoje ✅'}</div>`;
-    return list.map((t,i)=>`
-      <div style="display:flex;align-items:flex-start;gap:16px;padding:14px 28px;border-bottom:1px solid #f0f4fb;background:${i%2===0?'#ffffff':'#fafbff'}">
+    return list.map((t,i)=>{
+      const hasDest = t.dest&&t.dest!=='—';
+      const hasResp = t.resp&&t.resp!=='—';
+      const pessoas = hasResp
+        ? (hasDest ? `${esc(t.resp)} › ${esc(t.dest)}` : esc(t.resp))
+        : (hasDest ? esc(t.dest) : '');
+      return `
+      <div style="display:flex;align-items:flex-start;gap:16px;padding:13px 28px;border-bottom:1px solid #f0f4fb;background:${i%2===0?'#ffffff':'#fafbff'}">
         <div style="flex:1;min-width:0">
           <div style="font-size:16px;font-weight:700;color:#1a2340;line-height:1.4">${esc(t.name)}</div>
-          ${t.resp&&t.resp!=='—'?`<div style="font-size:13px;color:#6b7ea0;margin-top:5px;display:flex;align-items:center;gap:5px"><span style="opacity:.7">👤</span> ${esc(t.resp)}</div>`:''}
-          ${isAtraso&&t.prazo&&t.prazo!=='—'?`<div style="font-size:13px;color:#dc2626;margin-top:4px;font-weight:700;display:flex;align-items:center;gap:5px"><span>📅</span> Prazo: ${t.prazo}</div>`:''}
+          ${pessoas?`<div style="font-size:13px;color:#6b7ea0;margin-top:5px">👤 ${pessoas}</div>`:''}
+          ${t.prazo&&t.prazo!=='—'?`<div style="font-size:13px;color:${isAtraso?'#dc2626':'#4b5c7a'};font-weight:${isAtraso?700:600};margin-top:4px">📅 ${t.prazo}</div>`:''}
         </div>
         <span style="font-size:12px;font-weight:800;padding:5px 14px;border-radius:99px;white-space:nowrap;flex-shrink:0;margin-top:3px;${isAtraso?'background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5':'background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe'}">${mLabel(t.month)}</span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   document.getElementById('exportCard').innerHTML = `
