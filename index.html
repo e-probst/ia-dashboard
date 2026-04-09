@@ -2889,7 +2889,7 @@ function exportImageDash(){
 function printDash(){
   buildExportCard();
   const cardHtml = document.getElementById('exportCard').innerHTML;
-  const win = window.open('','_blank','width=960,height=700');
+  const win = window.open('','_blank','width=1200,height=800');
   if(!win){ showToast('⚠️ Popup bloqueado — permita popups para imprimir',''); return; }
   win.document.write(`<!DOCTYPE html>
 <html><head>
@@ -2897,7 +2897,7 @@ function printDash(){
 <title>Resumo de Pendências — Mabu</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
 <style>
-  @page{margin:10mm 12mm;}
+  @page{size:A4 landscape;margin:8mm 6mm;}
   *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   body{margin:0;padding:0;font-family:'Nunito','Segoe UI',Arial,sans-serif;background:#fff;}
 </style>
