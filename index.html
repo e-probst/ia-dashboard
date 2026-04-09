@@ -24,7 +24,7 @@
   body{font-family:"Nunito",sans-serif;background:var(--ivory);color:var(--text-primary);min-height:100vh;}
 
   /* HEADER */
-  header{background:linear-gradient(135deg,var(--navy) 0%,var(--blue-dark) 60%,#0f3d8c 100%);display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:64px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(10,30,69,.3);}
+  header{background:linear-gradient(135deg,var(--navy) 0%,var(--blue-dark) 60%,#0f3d8c 100%);display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:64px;position:sticky;top:0;z-index:500;box-shadow:0 2px 16px rgba(10,30,69,.3);}
   .header-brand{display:flex;align-items:center;gap:14px;}
   .brand-logo{height:40px;width:40px;border-radius:50%;object-fit:contain;background:white;padding:3px;box-shadow:0 0 0 2px rgba(59,154,232,.4);}
   .brand-title{display:flex;flex-direction:column;gap:1px;}
@@ -338,7 +338,7 @@
   .toast.show{transform:translateY(0);opacity:1;}
   .toast.green{background:var(--green);}
 
-  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
   @media(max-width:1024px){.main{padding:20px 20px 48px;}.main--shared{padding-bottom:0;}.main--content{padding-top:10px;}}
   @media(max-width:900px){.kpi-row{flex-wrap:wrap;}.kpi-card{min-width:calc(50% - 6px);}.main{padding:16px 14px 40px;}.main--shared{padding-bottom:0;}.main--content{padding-top:8px;}}
   @media(max-width:600px){
@@ -361,13 +361,29 @@
     /* ── KPI — sempre 2 por linha ── */
     .kpi-card{min-width:calc(50% - 5px);flex:1 1 calc(50% - 5px);}
     .kpi-card.progress{min-width:calc(50% - 5px);}
-    /* ── Pendências — 2 colunas, padding reduzido ── */
-    .pend-cols{gap:10px;}
+    /* ── Pendências — 2 blocos empilhados em portrait ── */
+    .pend-cols{grid-template-columns:1fr;gap:10px;}
     .pend-block{padding:14px 12px 12px;}
     .pend-block-title{font-size:13px;}
-    .pend-col-title{font-size:10px;letter-spacing:0;text-transform:none;}
-    .pend-item-name{font-size:11.5px;}
-    .pend-item-meta{font-size:10px;}
+    .pend-col-hoje{border-radius:10px;overflow:hidden;border:1.5px solid #fde68a;}
+    .pend-col-atraso{border-radius:10px;overflow:hidden;border:1.5px solid #fca5a5;}
+    .pend-col-header{border-bottom:none;border-radius:0;padding:10px 14px;margin-bottom:0;}
+    .pend-col-hoje .pend-col-header{background:linear-gradient(to right,#fffbeb,#fefce8);border-bottom:2px solid #f59e0b;}
+    .pend-col-atraso .pend-col-header{background:linear-gradient(to right,#fef2f2,#fff1f1);border-bottom:2px solid #dc2626;}
+    .pend-col-hoje .pend-col-title{color:#92400e;font-size:10.5px;}
+    .pend-col-atraso .pend-col-title{color:#991b1b;font-size:10.5px;}
+    .pend-list{max-height:200px;padding:4px 0;}
+    .pend-item{margin:0 6px 4px;}
+    .pend-item-name{font-size:12px;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35;}
+    .pend-item-meta{font-size:10.5px;}
+    /* ── Timeline ── */
+    .timeline-scroll{
+      -webkit-mask-image:linear-gradient(to right,transparent,black 14px,black calc(100% - 14px),transparent);
+      mask-image:linear-gradient(to right,transparent,black 14px,black calc(100% - 14px),transparent);
+    }
+    .tl-dot{width:22px;height:22px;}
+    .tl-month.active .tl-dot{box-shadow:0 0 0 6px rgba(26,111,212,.18);}
+    .tl-month{padding:2px 0;}
     /* ── Controles ── */
     .controls{gap:6px;flex-wrap:wrap;padding:10px 12px;}
     .search-wrap{min-width:0;flex:1 1 100%;}
@@ -382,9 +398,12 @@
     .page-subtitle{font-size:11.5px;}
     /* ── Timeline ── */
     .timeline-wrap{padding:10px 12px;}
-    .tl-month{min-width:70px;}
-    .tl-name{font-size:10px;}
-    .tl-count{font-size:9px;}
+    .tl-month{min-width:52px;}
+    .tl-name{font-size:10.5px;}
+    .tl-count{font-size:9px;white-space:nowrap;}
+    /* ── Tabela mobile: nome completo + Responsável mais estreito ── */
+    .task-name{white-space:normal;line-height:1.3;font-size:12px;}
+    thead th[id="th-resp"],tbody td:nth-child(3){width:100px!important;}
     /* ── Modal tarefa — padding compacto ── */
     .modal-body{padding:14px 14px;gap:12px;}
     .modal-header{padding:14px 16px 12px;}
@@ -419,7 +438,6 @@
     .nav-tabs{margin-left:4px;}
     .nav-tab{font-size:10.5px;padding:5px 8px;}
     .brand-logo{height:32px;width:32px;}
-    .pend-cols{gap:6px;}
   }
   /* ── Landscape: tela deitada (altura pequena) ── */
   @media(orientation:landscape) and (max-height:500px){
@@ -435,7 +453,18 @@
     .kpi-card{min-width:0;flex:1;}
     .kpi-card.progress{min-width:0;}
     .timeline-wrap{padding:8px 12px;}
-    .pend-cols{gap:14px;}
+    /* Pendências: volta a 2 colunas no landscape */
+    .pend-cols{grid-template-columns:1fr 1fr;gap:14px;}
+    .pend-col-hoje,.pend-col-atraso{border-radius:0;overflow:visible;border:none;}
+    .pend-col-header{background:transparent;border-bottom:1px solid var(--border-light);border-radius:0;padding:0 0 8px;margin-bottom:8px;}
+    .pend-col-hoje .pend-col-header,.pend-col-atraso .pend-col-header{background:transparent;border-bottom:1px solid var(--border-light);}
+    .pend-col-hoje .pend-col-title,.pend-col-atraso .pend-col-title{color:var(--text-muted);font-size:10px;}
+    .pend-list{max-height:130px;padding:0;}
+    .pend-item{margin:0 0 4px;}
+    .pend-item-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    /* Timeline no landscape: sem mask (mais espaço) */
+    .timeline-scroll{-webkit-mask-image:none;mask-image:none;}
+    .tl-dot{width:20px;height:20px;}
   }
 
   /* ── EmailJS / Notify ── */
@@ -699,14 +728,14 @@
       <span class="pend-all-ok" id="pendAllOk" style="display:none">✅ Tudo em dia!</span>
     </div>
     <div class="pend-cols">
-      <div>
+      <div class="pend-col-hoje">
         <div class="pend-col-header">
           <span class="pend-col-title">📅 Pendências de Hoje</span>
           <span class="pend-count hoje" id="pendHojeCount">0</span>
         </div>
         <div class="pend-list" id="pendHojeList"></div>
       </div>
-      <div>
+      <div class="pend-col-atraso">
         <div class="pend-col-header">
           <span class="pend-col-title">⚠️ Em Atraso</span>
           <span class="pend-count atraso" id="pendAtrasoCount">0</span>
@@ -885,7 +914,7 @@
 </div>
 
 <!-- Card de exportação (oculto — usado para imagem e PDF) -->
-<div id="exportCardWrap" style="position:fixed;left:-9999px;top:0;width:1200px;z-index:-1">
+<div id="exportCardWrap" style="position:fixed;left:-9999px;top:0;width:900px;z-index:-1">
   <div id="exportCard" style="background:white;font-family:'Nunito','Segoe UI',Arial,sans-serif;border-radius:0;overflow:hidden"></div>
 </div>
 
@@ -1119,10 +1148,10 @@ function renderTimeline(){
     const isPast=mIdx<curIdx, isFut=mIdx>curIdx;
     const mHols=getHolidaysInMonth(m.key);
     const holTitle = mHols.length ? mHols.map(h=>esc(h.date)+'—'+esc(h.name)).join('\n') : '';
-    return `<div class="tl-month ${m.key===activeMth?'active':''} ${m.current?'current':''} ${isPast?'past':''} ${isFut?'future':''}" title="${holTitle}" onclick="selectMonth('${m.key}')">
+    return `<div class="tl-month ${m.key===activeMth?'active':''} ${m.current?'current':''} ${isPast?'past':''} ${isFut?'future':''}" title="${m.label}${holTitle?'\n'+holTitle:''}" onclick="selectMonth('${m.key}')">
       <div class="tl-dot">${mHols.length?'<span class="tl-holiday-dot"></span>':''}</div>
-      <span class="tl-name">${m.label}</span>
-      <span class="tl-count">${mTasks.length} tarefas · ${pct}% ok</span>
+      <span class="tl-name">${m.short}</span>
+      <span class="tl-count">${mTasks.length} · ${pct}%</span>
       <div class="tl-status-dots">
         ${done?`<span class="tl-sd" style="background:var(--green)" title="${done} entregues"></span>`:''}
         ${atrasado?`<span class="tl-sd" style="background:var(--red)" title="${atrasado} atrasadas"></span>`:''}
@@ -1141,7 +1170,7 @@ function renderTimeline(){
     <div class="tl-month geral ${activeMth==='geral'?'active':''}" onclick="selectMonth('geral')" title="Visão geral de todos os meses do ano">
       <div class="tl-dot"></div>
       <span class="tl-name">Geral</span>
-      <span class="tl-count">${allTasks.length} tarefas · ${gPct}% ok</span>
+      <span class="tl-count">${allTasks.length} · ${gPct}%</span>
       <div class="tl-status-dots">
         ${gDone?`<span class="tl-sd" style="background:var(--green)" title="${gDone} entregues"></span>`:''}
         ${gAtr?`<span class="tl-sd" style="background:var(--red)" title="${gAtr} atrasadas"></span>`:''}
@@ -2760,51 +2789,69 @@ function buildExportCard(){
   const mLabel   = k => { const m=MONTHS.find(x=>x.key===k); return m?m.short:k.toUpperCase(); };
   const dateStr  = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   const dateFmt  = dateStr.charAt(0).toUpperCase()+dateStr.slice(1);
+  const total    = hoje.length + atrasadas.length;
 
   function rows(list, isAtraso){
-    if(!list.length) return `<div style="padding:20px 16px;text-align:center;font-size:12px;color:#8a9bbf;font-style:italic">${isAtraso?'Nenhuma tarefa atrasada ✅':'Nenhuma pendência para hoje ✅'}</div>`;
-    return list.map(t=>`
-      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid #f0f4fb;">
+    if(!list.length) return `<div style="padding:32px 24px;text-align:center;font-size:14px;color:#8a9bbf;font-style:italic">${isAtraso?'Nenhuma tarefa atrasada ✅':'Nenhuma pendência para hoje ✅'}</div>`;
+    return list.map((t,i)=>`
+      <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 24px;border-bottom:1px solid #f0f4fb;background:${i%2===0?'#ffffff':'#fafbff'}">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:#1a2340;line-height:1.35">${esc(t.name)}</div>
-          ${t.resp&&t.resp!=='—'?`<div style="font-size:11px;color:#6b7ea0;margin-top:3px">👤 ${esc(t.resp)}</div>`:''}
-          ${isAtraso&&t.prazo&&t.prazo!=='—'?`<div style="font-size:11px;color:#dc2626;margin-top:2px;font-weight:600">📅 Prazo: ${t.prazo}</div>`:''}
+          <div style="font-size:14.5px;font-weight:700;color:#1a2340;line-height:1.4">${esc(t.name)}</div>
+          ${t.resp&&t.resp!=='—'?`<div style="font-size:12px;color:#6b7ea0;margin-top:4px;display:flex;align-items:center;gap:4px"><span style="opacity:.7">👤</span> ${esc(t.resp)}</div>`:''}
+          ${isAtraso&&t.prazo&&t.prazo!=='—'?`<div style="font-size:12px;color:#dc2626;margin-top:4px;font-weight:700;display:flex;align-items:center;gap:4px"><span>📅</span> Prazo: ${t.prazo}</div>`:''}
         </div>
-        <span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0;margin-top:2px;${isAtraso?'background:#fef2f2;color:#dc2626;border:1px solid #fca5a5':'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe'}">${mLabel(t.month)}</span>
+        <span style="font-size:11px;font-weight:800;padding:5px 12px;border-radius:99px;white-space:nowrap;flex-shrink:0;margin-top:3px;${isAtraso?'background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5':'background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe'}">${mLabel(t.month)}</span>
       </div>`).join('');
   }
 
   document.getElementById('exportCard').innerHTML = `
-    <div style="background:linear-gradient(135deg,#0f1f4a 0%,#1a5296 100%);padding:22px 28px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="color:white;font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:700;line-height:1.2;letter-spacing:-.3px">Resumo de Pendências</div>
-        <div style="color:rgba(255,255,255,.65);font-size:11.5px;margin-top:5px">${dateFmt}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="color:rgba(255,255,255,.5);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Total</div>
-        <div style="color:white;font-size:26px;font-weight:800;line-height:1">${hoje.length + atrasadas.length}</div>
-        <div style="color:rgba(255,255,255,.55);font-size:10px">pendência${(hoje.length+atrasadas.length)!==1?'s':''}</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;border-top:3px solid #e2e8f0">
-      <div style="border-right:1px solid #e2e8f0">
-        <div style="padding:14px 16px;background:#fffbeb;border-bottom:2px solid #fde68a;display:flex;align-items:center;justify-content:space-between">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:#92400e">📅 Pendências de Hoje</div>
-          <span style="background:#f59e0b;color:white;font-size:13px;font-weight:800;padding:3px 11px;border-radius:99px;min-width:24px;text-align:center">${hoje.length}</span>
+    <div style="font-family:'Nunito','Segoe UI',Arial,sans-serif">
+      <!-- Cabeçalho -->
+      <div style="background:linear-gradient(135deg,#0d1d45 0%,#1a5296 60%,#1e6bb8 100%);padding:32px 40px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:20px">
+          <div style="width:5px;height:56px;background:rgba(255,255,255,.35);border-radius:3px;flex-shrink:0"></div>
+          <div>
+            <div style="color:rgba(255,255,255,.6);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">Mabu Hospitalidade</div>
+            <div style="color:white;font-size:26px;font-weight:800;line-height:1.15;letter-spacing:-.4px">Resumo de Pendências</div>
+            <div style="color:rgba(255,255,255,.6);font-size:13px;margin-top:6px">${dateFmt}</div>
+          </div>
         </div>
-        <div>${rows(hoje,false)}</div>
-      </div>
-      <div>
-        <div style="padding:14px 16px;background:#fef2f2;border-bottom:2px solid #fca5a5;display:flex;align-items:center;justify-content:space-between">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:#991b1b">⚠️ Em Atraso</div>
-          <span style="background:#dc2626;color:white;font-size:13px;font-weight:800;padding:3px 11px;border-radius:99px;min-width:24px;text-align:center">${atrasadas.length}</span>
+        <div style="text-align:center;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);border-radius:16px;padding:18px 32px">
+          <div style="color:rgba(255,255,255,.6);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total</div>
+          <div style="color:white;font-size:42px;font-weight:900;line-height:1">${total}</div>
+          <div style="color:rgba(255,255,255,.55);font-size:11px;margin-top:2px">pendência${total!==1?'s':''}</div>
         </div>
-        <div>${rows(atrasadas,true)}</div>
       </div>
-    </div>
-    <div style="padding:10px 16px;background:#f8faff;border-top:1px solid #e8edf5;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:10px;color:#8a9bbf;font-weight:600">Mabu Hospitalidade · Cronograma de Fechamento</span>
-      <span style="font-size:10px;color:#8a9bbf">${new Date().toLocaleString('pt-BR')}</span>
+      <!-- Corpo: 2 colunas -->
+      <div style="display:grid;grid-template-columns:1fr 1fr">
+        <!-- Hoje -->
+        <div style="border-right:2px solid #e2e8f0">
+          <div style="padding:18px 24px;background:linear-gradient(to right,#fffbeb,#fefce8);border-bottom:3px solid #f59e0b;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#b45309;margin-bottom:3px">Pendências de Hoje</div>
+              <div style="font-size:13px;color:#92400e;font-weight:600">${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
+            </div>
+            <div style="background:#f59e0b;color:white;font-size:22px;font-weight:900;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(245,158,11,.35)">${hoje.length}</div>
+          </div>
+          <div>${rows(hoje,false)}</div>
+        </div>
+        <!-- Em Atraso -->
+        <div>
+          <div style="padding:18px 24px;background:linear-gradient(to right,#fef2f2,#fff1f1);border-bottom:3px solid #dc2626;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#991b1b;margin-bottom:3px">Em Atraso</div>
+              <div style="font-size:13px;color:#7f1d1d;font-weight:600">Requer atenção imediata</div>
+            </div>
+            <div style="background:#dc2626;color:white;font-size:22px;font-weight:900;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(220,38,38,.35)">${atrasadas.length}</div>
+          </div>
+          <div>${rows(atrasadas,true)}</div>
+        </div>
+      </div>
+      <!-- Rodapé -->
+      <div style="padding:14px 40px;background:#f1f5fd;border-top:2px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:11px;color:#6b7ea0;font-weight:700;letter-spacing:.3px">Mabu Hospitalidade · Cronograma de Fechamento</span>
+        <span style="font-size:11px;color:#8a9bbf">Gerado em ${new Date().toLocaleString('pt-BR')}</span>
+      </div>
     </div>`;
 }
 
@@ -2817,11 +2864,11 @@ function exportImageDash(){
 
   function doCapture(){
     // Mover para área visível (html2canvas precisa)
-    wrap.style.cssText='position:fixed;left:0;top:0;width:1200px;z-index:-100;opacity:0;pointer-events:none';
+    wrap.style.cssText='position:fixed;left:0;top:0;width:900px;z-index:-100;opacity:0;pointer-events:none';
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      html2canvas(card,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:card.offsetWidth})
+      html2canvas(card,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:card.offsetWidth,windowWidth:900})
       .then(canvas=>{
-        wrap.style.cssText='position:fixed;left:-9999px;top:0;width:1200px;z-index:-1';
+        wrap.style.cssText='position:fixed;left:-9999px;top:0;width:900px;z-index:-1';
         const link=document.createElement('a');
         link.download=`pendencias-mabu-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.png`;
         link.href=canvas.toDataURL('image/png');
