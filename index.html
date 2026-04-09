@@ -52,7 +52,7 @@
   .timeline-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
   .timeline-track{display:flex;align-items:flex-start;gap:0;position:relative;overflow:visible;}
   .tl-month{min-width:90px;}
-  .timeline-track::before{content:"";position:absolute;top:10px;transform:translateY(-50%);left:0;right:0;height:2px;background:linear-gradient(to right,var(--blue-main) 0%,var(--blue-main) var(--past-pct,0%),var(--border) var(--past-pct,0%),var(--border) 100%);z-index:0;border-radius:99px;}
+  .timeline-track::before{content:"";position:absolute;top:9px;left:0;right:0;height:2px;background:linear-gradient(to right,var(--blue-main) 0%,var(--blue-main) var(--past-pct,0%),var(--border) var(--past-pct,0%),var(--border) 100%);z-index:0;border-radius:99px;}
   .tl-month{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;position:relative;z-index:1;flex:1;}
   .tl-dot{width:20px;height:20px;border-radius:50%;border:2.5px solid var(--border);background:var(--white);transition:all .25s;position:relative;flex-shrink:0;box-shadow:0 1px 3px rgba(13,45,110,.1);}
   .tl-dot::after{content:"";position:absolute;inset:-6px;border-radius:50%;background:transparent;transition:all .2s;}
@@ -72,7 +72,7 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   .tl-status-dots{display:flex;gap:3px;margin-top:1px;}
   .tl-sd{width:6px;height:6px;border-radius:50%;}
-  .tl-geral-sep{width:2px;height:40px;background:linear-gradient(to bottom,transparent,var(--border),transparent);border-radius:99px;flex-shrink:0;margin:0 8px;align-self:center;opacity:.5;}
+  .tl-geral-sep{width:2px;height:20px;background:var(--border);border-radius:99px;flex-shrink:0;margin:0 6px;align-self:flex-start;opacity:.4;}
   .tl-month.geral .tl-dot{border-color:var(--blue-dark);background:var(--blue-ghost);border-style:dashed;}
   .tl-month.geral .tl-name{font-size:11.5px;font-weight:800;color:var(--blue-dark);}
   .tl-month.geral.active .tl-dot{border-style:solid;border-color:var(--blue-main);background:var(--blue-main);box-shadow:0 0 0 5px rgba(26,111,212,.22);}
@@ -400,9 +400,10 @@
       mask-image:linear-gradient(to right,transparent,black 14px,black calc(100% - 14px),transparent);
     }
     .tl-dot{width:22px;height:22px;}
-    .timeline-track::before{top:11px;}
+    .timeline-track::before{top:10px;}
+    .tl-geral-sep{height:22px;}
     .tl-month.active .tl-dot{box-shadow:0 0 0 6px rgba(26,111,212,.2),0 3px 10px rgba(26,111,212,.3);}
-    .tl-month{padding:2px 0;}
+    .tl-month{padding:0;}
     /* ── Controles ── */
     .controls{gap:6px;flex-wrap:wrap;padding:10px 12px;}
     .search-wrap{order:1;min-width:0;flex:1 1 100%;}
@@ -463,6 +464,10 @@
     .dash-export-bar{padding:10px 12px;gap:6px;}
     .dash-export-label{display:none;}
     .btn-dash-export{flex:1;justify-content:center;font-size:11.5px;padding:10px 8px;}
+    /* ── Gráfico ── */
+    .chart-wrap{padding:12px 12px 10px;margin-bottom:12px;}
+    .chart-title{font-size:12px;margin-bottom:8px;}
+    .chart-canvas-wrap{height:170px;}
     /* ── Relatório ── */
     .report-summary{padding:12px 12px;gap:8px;}
     .report-summary-item{min-width:calc(50% - 4px);padding:12px 8px;}
@@ -519,6 +524,10 @@
     .grp-row{display:block;background:var(--blue-ghost);border-radius:8px;margin-bottom:4px;padding:0;}
     .grp-row td{display:block!important;padding:8px 12px;border-radius:8px;}
     .table-wrap{overflow-x:visible;-webkit-mask-image:none;mask-image:none;}
+    /* ── Gráfico landscape ── */
+    .chart-wrap{padding:10px 12px 8px;margin-bottom:10px;}
+    .chart-title{font-size:12px;margin-bottom:6px;}
+    .chart-canvas-wrap{height:120px;}
     /* Controles landscape: linha 1 busca+filtros, linha 2 botões */
     .controls{flex-wrap:wrap;padding:6px 12px;gap:5px;}
     .search-wrap{flex:1 1 auto;min-width:100px;}
@@ -3045,7 +3054,7 @@ function renderChart(){
         responsive:true, maintainAspectRatio:false,
         interaction:{ mode:'index', intersect:false },
         plugins:{
-          legend:{ display:true, position:'bottom', labels:{font:{family:'Nunito',size:11},color:'#3a5080',boxWidth:12,padding:14,usePointStyle:true} },
+          legend:{ display:true, position:'bottom', labels:{font:{family:'Nunito',size:10},color:'#3a5080',boxWidth:10,padding:10,usePointStyle:true} },
           tooltip:{ callbacks:{ label: c => ` ${c.dataset.label}: ${c.parsed.y}` } }
         },
         scales:{
