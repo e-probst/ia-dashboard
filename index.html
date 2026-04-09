@@ -2786,16 +2786,21 @@ function buildExportCard(){
   const total    = hoje.length + atrasadas.length;
 
   function rows(list, isAtraso){
-    if(!list.length) return `<div style="padding:32px 24px;text-align:center;font-size:14px;color:#8a9bbf;font-style:italic">${isAtraso?'Nenhuma tarefa atrasada ✅':'Nenhuma pendência para hoje ✅'}</div>`;
-    return list.map((t,i)=>`
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 24px;border-bottom:1px solid #f0f4fb;background:${i%2===0?'#ffffff':'#fafbff'}">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14.5px;font-weight:700;color:#1a2340;line-height:1.4">${esc(t.name)}</div>
-          ${t.resp&&t.resp!=='—'?`<div style="font-size:12px;color:#6b7ea0;margin-top:4px;display:flex;align-items:center;gap:4px"><span style="opacity:.7">👤</span> ${esc(t.resp)}</div>`:''}
-          ${isAtraso&&t.prazo&&t.prazo!=='—'?`<div style="font-size:12px;color:#dc2626;margin-top:4px;font-weight:700;display:flex;align-items:center;gap:4px"><span>📅</span> Prazo: ${t.prazo}</div>`:''}
+    if(!list.length) return `<div style="padding:24px;text-align:center;font-size:13px;color:#8a9bbf;font-style:italic">${isAtraso?'Nenhuma tarefa atrasada ✅':'Nenhuma pendência para hoje ✅'}</div>`;
+    return list.map((t,i)=>{
+      const meta = [
+        t.resp&&t.resp!=='—' ? `👤 ${esc(t.resp)}` : '',
+        isAtraso&&t.prazo&&t.prazo!=='—' ? `📅 ${t.prazo}` : ''
+      ].filter(Boolean).join(' · ');
+      return `
+      <div style="display:flex;align-items:center;gap:16px;padding:10px 24px;border-bottom:1px solid #f0f4fb;background:${i%2===0?'#ffffff':'#fafbff'}">
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;overflow:hidden">
+          <div style="font-size:13.5px;font-weight:700;color:#1a2340;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(t.name)}</div>
+          ${meta?`<div style="font-size:11.5px;color:${isAtraso?'#dc2626':'#6b7ea0'};white-space:nowrap;flex-shrink:0${isAtraso?';font-weight:700':''}">${meta}</div>`:''}
         </div>
-        <span style="font-size:11px;font-weight:800;padding:5px 12px;border-radius:99px;white-space:nowrap;flex-shrink:0;margin-top:3px;${isAtraso?'background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5':'background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe'}">${mLabel(t.month)}</span>
-      </div>`).join('');
+        <span style="font-size:11px;font-weight:800;padding:4px 12px;border-radius:99px;white-space:nowrap;flex-shrink:0;${isAtraso?'background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5':'background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe'}">${mLabel(t.month)}</span>
+      </div>`;
+    }).join('');
   }
 
   document.getElementById('exportCard').innerHTML = `
