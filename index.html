@@ -212,10 +212,15 @@
   tbody tr.row td:last-child{padding:11px 8px;text-align:center;}
   .task-name{font-weight:600;max-width:440px;line-height:1.38;font-size:13px;}
   .task-note{display:block;font-size:11px;color:var(--blue-mid);font-weight:400;margin-top:2px;}
-  .task-mobile-meta{display:none;flex-wrap:wrap;align-items:center;gap:5px 8px;margin-top:5px;}
-  .mm-person{font-size:11px;color:var(--text-muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
-  .mm-prazo{font-size:11px;color:var(--text-secondary);font-weight:700;white-space:nowrap;}
+  .task-mobile-meta{display:none;flex-direction:column;gap:5px;margin-top:7px;}
+  .task-cell-wrap{display:flex;align-items:flex-start;gap:6px;}
+  .mob-edit-btn{display:none;flex-shrink:0;width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;align-items:center;justify-content:center;color:var(--text-muted);transition:all .15s;margin-top:1px;}
+  .mob-edit-btn:active{background:var(--blue-main);color:white;border-color:var(--blue-main);}
+  .mm-people{font-size:11.5px;color:var(--text-muted);font-weight:600;line-height:1.4;}
+  .mm-dates{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;}
+  .mm-prazo{font-size:11.5px;color:var(--text-secondary);font-weight:700;white-space:nowrap;}
   .mm-prazo.today-date{color:var(--red);}
+  .mm-entrega{font-size:11.5px;color:var(--green);font-weight:700;white-space:nowrap;}
   .chip{display:inline-flex;align-items:center;gap:4px;background:var(--blue-ghost);border:1px solid var(--border);border-radius:99px;padding:2px 9px 2px 5px;font-size:11.5px;color:var(--text-secondary);white-space:nowrap;font-weight:500;max-width:195px;overflow:hidden;text-overflow:ellipsis;}
   .avatar{width:17px;height:17px;border-radius:50%;background:linear-gradient(135deg,var(--blue-main),var(--blue-light));color:white;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;flex-shrink:0;}
   .avatar.dest{background:linear-gradient(135deg,var(--blue-dark),var(--blue-mid));}
@@ -346,9 +351,17 @@
   @media(max-width:1024px){.main{padding:20px 20px 48px;}.main--shared{padding-bottom:0;}.main--content{padding-top:10px;}}
   @media(max-width:900px){.kpi-row{flex-wrap:wrap;}.kpi-card{min-width:calc(50% - 6px);}.main{padding:16px 14px 40px;}.main--shared{padding-bottom:0;}.main--content{padding-top:8px;}}
   @media(max-width:600px){
-    /* ── Tabela: mostra Atividade + Responsável, info extra no task-mobile-meta ── */
-    thead th:nth-child(n+4),tbody td:nth-child(n+4){display:none;}
-    .table-wrap{overflow-x:auto;-webkit-mask-image:linear-gradient(to right,black calc(100% - 20px),transparent);mask-image:linear-gradient(to right,black calc(100% - 20px),transparent);}
+    /* ── Tabela: card por linha, todas as info no task-mobile-meta ── */
+    thead{display:none;}
+    thead th:nth-child(n+3),tbody td:nth-child(n+3){display:none;}
+    .table-wrap{overflow-x:visible;-webkit-mask-image:none;mask-image:none;}
+    table{display:block;}
+    tbody{display:block;padding:8px 10px;}
+    tbody tr.row{display:block;background:white;border:1px solid var(--border-light);border-radius:12px;margin-bottom:8px;padding:10px 12px;box-shadow:0 1px 4px rgba(13,45,110,.06);}
+    tbody tr.today-row{border-color:#bfdbfe;background:#f0f7ff;}
+    tbody tr.row td{display:none;padding:0;border:none;}
+    tbody tr.row td:nth-child(2){display:block;}
+    .row-num{display:none!important;}
     /* ── Main ── */
     .main{padding:12px 10px 32px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}
     /* ── Header: brand+botões linha 1, tabs linha 2 ── */
@@ -392,7 +405,7 @@
     /* ── Controles ── */
     .controls{gap:6px;flex-wrap:wrap;padding:10px 12px;}
     .search-wrap{min-width:0;flex:1 1 100%;}
-    .filter-select{min-width:0;flex:1 1 calc(50% - 6px);}
+    .filter-select{min-width:0;flex:1 1 100%;}
     .btn-clear{flex:0 0 auto;padding:10px 12px;font-size:11.5px;}
     .results-count{display:none;}
     .btn-export{flex:1;justify-content:center;font-size:11.5px;padding:10px 8px;}
@@ -406,16 +419,16 @@
     .tl-month{min-width:52px;}
     .tl-name{font-size:10.5px;}
     .tl-count{font-size:10px;white-space:nowrap;}
-    /* ── Tabela mobile: compacta, meta info abaixo do nome ── */
-    .task-name{white-space:normal;line-height:1.3;font-size:11.5px;word-break:break-word;}
+    /* ── Tabela mobile card: nome completo + todas as infos ── */
+    .task-name{white-space:normal;line-height:1.35;font-size:13px;word-break:break-word;font-weight:700;}
     .task-mobile-meta{display:flex;}
-    tbody tr.row td{padding:7px 8px;font-size:12px;}
-    tbody tr.row td.row-num{padding:7px 4px 7px 6px;}
-    thead th[id="th-resp"],tbody td:nth-child(3){width:80px!important;}
-    .chip{font-size:10.5px;padding:2px 6px 2px 4px;max-width:76px;overflow:hidden;text-overflow:ellipsis;}
-    .avatar{width:15px;height:15px;font-size:8px;}
+    .mob-edit-btn{display:inline-flex;}
+    .task-note{font-size:11px;}
+    .grp-row{display:block;background:var(--blue-ghost);border-radius:8px;margin-bottom:4px;padding:0;}
+    .grp-row td{display:block!important;padding:8px 12px;border-radius:8px;}
     .pg-btn{height:36px;min-width:32px;padding:0 10px;}
     .pg-btn.pg-showall{padding:0 10px;font-size:10.5px;}
+    .pagination{padding:10px 12px;}
     /* ── Modal tarefa — padding compacto ── */
     .modal-body{padding:14px 14px;gap:12px;}
     .modal-header{padding:14px 16px 12px;}
@@ -1751,12 +1764,15 @@ function render(){
         const entCell=`<span class="ent-cell" onclick="clickEntrega(${t.id})" title="Clique para registrar data de entrega">${hasEnt?`<span class="date-done">${t.entrega}</span>`:`<span class="date-empty">—</span>`}<span class="ent-icon">${hasEnt?'✏':'📅'}</span></span>`;
         const isRowToday=(t.prazo===todayStr());
         const rowHol=getHolidaysForDate(t.prazo);
-        const mmPrazo=(t.prazo&&t.prazo!=='—')?`<span class="mm-prazo${isRowToday?' today-date':''}">📅 ${t.prazo}</span>`:'';
-        const mmBadge=`<span class="badge ${bc}" style="font-size:9px;padding:2px 6px"><span class="bdot"></span>${bLabel(t.status)}</span>`;
-        const mobileMeta=`<div class="task-mobile-meta">${mmPrazo}${mmBadge}</div>`;
+        const mmPeople=(()=>{const r=(t.resp&&t.resp!=='—')?esc(t.resp):'';const d=(t.dest&&t.dest!=='—')?esc(t.dest):'';return(r||d)?`<div class="mm-people">👤 ${r}${r&&d?' › ':''}${d}</div>`:''})();
+        const mmPrazoHtml=(t.prazo&&t.prazo!=='—')?`<span class="mm-prazo${isRowToday?' today-date':''}">📅 ${t.prazo}</span>`:'';
+        const mmEntregaHtml=(t.entrega&&t.entrega!=='—')?`<span class="mm-entrega">🏁 ${t.entrega}</span>`:'';
+        const mmBadge=`<span class="badge ${bc}" style="font-size:10px;padding:3px 8px"><span class="bdot"></span>${bLabel(t.status)}</span>`;
+        const mobileMeta=`<div class="task-mobile-meta">${mmPeople}<div class="mm-dates">${mmPrazoHtml}${mmEntregaHtml}${mmBadge}</div></div>`;
+        const mobEditSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
         html+=`<tr class="row${isRowToday?' today-row':''}">
           <td class="row-num">${gi}</td>
-          <td><div class="task-name">${esc(t.name)}${t.recurring?'<span title="Tarefa recorrente" style="font-size:10px;opacity:.55;margin-left:4px">🔁</span>':''}${t.note?`<span class="task-note">${esc(t.note)}</span>`:''}${isRowToday&&t.status!=='ENTREGUE'&&t.status!=='ENTREGA ANTECIPADA'&&t.status!=='ENTREGUE COM ATRASO'?'<span class="today-badge">⚡ HOJE</span>':''}</div>${mobileMeta}</td>
+          <td><div class="task-cell-wrap"><div class="task-name">${esc(t.name)}${t.recurring?'<span title="Tarefa recorrente" style="font-size:10px;opacity:.55;margin-left:4px">🔁</span>':''}${t.note?`<span class="task-note">${esc(t.note)}</span>`:''}${isRowToday&&t.status!=='ENTREGUE'&&t.status!=='ENTREGA ANTECIPADA'&&t.status!=='ENTREGUE COM ATRASO'?'<span class="today-badge">⚡ HOJE</span>':''}</div><button class="mob-edit-btn" title="Editar" onclick="openModal(${t.id})">${mobEditSvg}</button></div>${mobileMeta}</td>
           <td>${t.resp&&t.resp!=='—'?`<span class="chip"><span class="avatar">${ini(t.resp)}</span>${esc(t.resp)}</span>`:'<span class="date-empty">—</span>'}</td>
           <td>${t.dest&&t.dest!=='—'?`<span class="chip"><span class="avatar dest">${ini(t.dest)}</span>${esc(t.dest)}</span>`:'<span class="date-empty">—</span>'}</td>
           <td><span class="date-cell${isRowToday?' today-date':''}">${t.prazo}</span></td>
