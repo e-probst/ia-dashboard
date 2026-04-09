@@ -650,13 +650,7 @@
   .report-summary-num.blue{color:var(--blue-main);}
   .report-summary-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-top:6px;}
 
-  @media print{
-    @page{margin:8mm 10mm;}
-    *{visibility:hidden;}
-    #exportCard,#exportCard *{visibility:visible;}
-    #exportCardWrap{position:fixed!important;left:0!important;top:0!important;width:100%!important;z-index:9999!important;}
-    #exportCard{width:100%!important;border-radius:0!important;}
-  }
+  @media print{body{display:none;}}
 </style>
 </head>
 <body>
@@ -2894,7 +2888,23 @@ function exportImageDash(){
 
 function printDash(){
   buildExportCard();
-  window.print();
+  const cardHtml = document.getElementById('exportCard').innerHTML;
+  const win = window.open('','_blank','width=960,height=700');
+  if(!win){ showToast('⚠️ Popup bloqueado — permita popups para imprimir',''); return; }
+  win.document.write(`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Resumo de Pendências — Mabu</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+  @page{margin:10mm 12mm;}
+  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  body{margin:0;padding:0;font-family:'Nunito','Segoe UI',Arial,sans-serif;background:#fff;}
+</style>
+</head><body>${cardHtml}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>{ win.print(); win.close(); }, 900);
 }
 
 let _reportStale = true; // mark stale whenever dashboard data changes
