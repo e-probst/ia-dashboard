@@ -348,7 +348,7 @@
   @media(max-width:600px){
     /* ── Tabela: mostra Atividade + Responsável, info extra no task-mobile-meta ── */
     thead th:nth-child(n+4),tbody td:nth-child(n+4){display:none;}
-    .table-wrap{overflow-x:auto;}
+    .table-wrap{overflow-x:auto;-webkit-mask-image:linear-gradient(to right,black calc(100% - 20px),transparent);mask-image:linear-gradient(to right,black calc(100% - 20px),transparent);}
     /* ── Main ── */
     .main{padding:12px 10px 32px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}
     /* ── Header: brand+botões linha 1, tabs linha 2 ── */
@@ -358,13 +358,14 @@
     .brand-name{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .brand-sub{display:none;}
     .nav-tabs{order:3;width:100%;margin:6px 0 0;padding:3px;gap:2px;justify-content:center;}
-    .nav-tab{font-size:12px;padding:6px 0;flex:1;text-align:center;}
+    .nav-tab{font-size:12px;padding:9px 0;flex:1;text-align:center;}
     .header-right{order:2;flex:none;justify-content:flex-end;padding-top:0;gap:8px;}
     .header-date{display:none;}
     .btn-new{padding:6px 12px;font-size:12px;}
     /* ── KPI — sempre 2 por linha ── */
     .kpi-card{min-width:calc(50% - 5px);flex:1 1 calc(50% - 5px);}
     .kpi-card.progress{min-width:calc(50% - 5px);}
+    .kpi-value{font-size:24px;}
     /* ── Pendências — 2 blocos empilhados em portrait ── */
     .pend-cols{grid-template-columns:1fr;gap:10px;}
     .pend-block{padding:14px 12px 12px;}
@@ -378,7 +379,7 @@
     .pend-col-atraso .pend-col-title{color:#991b1b;font-size:10.5px;}
     .pend-list{max-height:200px;padding:4px 0;}
     .pend-item{margin:0 6px 4px;}
-    .pend-item-name{font-size:12px;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35;}
+    .pend-item-name{font-size:12px;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4;word-break:break-word;}
     .pend-item-meta{font-size:10.5px;}
     /* ── Timeline ── */
     .timeline-scroll{
@@ -392,10 +393,10 @@
     .controls{gap:6px;flex-wrap:wrap;padding:10px 12px;}
     .search-wrap{min-width:0;flex:1 1 100%;}
     .filter-select{min-width:0;flex:1 1 calc(50% - 6px);}
-    .btn-clear{flex:0 0 auto;padding:7px 10px;font-size:11.5px;}
+    .btn-clear{flex:0 0 auto;padding:10px 12px;font-size:11.5px;}
     .results-count{display:none;}
-    .btn-export{flex:1;justify-content:center;font-size:11.5px;padding:7px 8px;}
-    .btn-notify{flex:1;justify-content:center;font-size:11.5px;padding:7px 8px;}
+    .btn-export{flex:1;justify-content:center;font-size:11.5px;padding:10px 8px;}
+    .btn-notify{flex:1;justify-content:center;font-size:11.5px;padding:10px 8px;}
     /* ── Títulos ── */
     .page-header{margin-bottom:12px;}
     .page-title{font-size:20px;}
@@ -404,15 +405,17 @@
     .timeline-wrap{padding:10px 12px;}
     .tl-month{min-width:52px;}
     .tl-name{font-size:10.5px;}
-    .tl-count{font-size:9px;white-space:nowrap;}
+    .tl-count{font-size:10px;white-space:nowrap;}
     /* ── Tabela mobile: compacta, meta info abaixo do nome ── */
-    .task-name{white-space:normal;line-height:1.25;font-size:11.5px;}
+    .task-name{white-space:normal;line-height:1.3;font-size:11.5px;word-break:break-word;}
     .task-mobile-meta{display:flex;}
     tbody tr.row td{padding:7px 8px;font-size:12px;}
     tbody tr.row td.row-num{padding:7px 4px 7px 6px;}
     thead th[id="th-resp"],tbody td:nth-child(3){width:80px!important;}
-    .chip{font-size:10.5px;padding:2px 6px 2px 4px;max-width:76px;}
-    .avatar{width:15px;height:15px;font-size:7px;}
+    .chip{font-size:10.5px;padding:2px 6px 2px 4px;max-width:76px;overflow:hidden;text-overflow:ellipsis;}
+    .avatar{width:15px;height:15px;font-size:8px;}
+    .pg-btn{height:36px;min-width:32px;padding:0 10px;}
+    .pg-btn.pg-showall{padding:0 10px;font-size:10.5px;}
     /* ── Modal tarefa — padding compacto ── */
     .modal-body{padding:14px 14px;gap:12px;}
     .modal-header{padding:14px 16px 12px;}
@@ -434,7 +437,7 @@
     /* ── Export Bar (Dashboard) ── */
     .dash-export-bar{padding:10px 12px;gap:6px;}
     .dash-export-label{display:none;}
-    .btn-dash-export{flex:1;justify-content:center;font-size:11.5px;padding:7px 8px;}
+    .btn-dash-export{flex:1;justify-content:center;font-size:11.5px;padding:10px 8px;}
     /* ── Relatório ── */
     .report-summary{padding:12px 12px;gap:8px;}
     .report-summary-item{min-width:calc(50% - 4px);padding:12px 8px;}
