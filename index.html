@@ -346,20 +346,20 @@
   @media(max-width:1024px){.main{padding:20px 20px 48px;}.main--shared{padding-bottom:0;}.main--content{padding-top:10px;}}
   @media(max-width:900px){.kpi-row{flex-wrap:wrap;}.kpi-card{min-width:calc(50% - 6px);}.main{padding:16px 14px 40px;}.main--shared{padding-bottom:0;}.main--content{padding-top:8px;}}
   @media(max-width:600px){
-    /* ── Tabela: mostra só Atividade (info extra no task-mobile-meta) ── */
-    thead th:nth-child(n+3),tbody td:nth-child(n+3){display:none;}
+    /* ── Tabela: mostra Atividade + Responsável, info extra no task-mobile-meta ── */
+    thead th:nth-child(n+4),tbody td:nth-child(n+4){display:none;}
     .table-wrap{overflow-x:auto;}
     /* ── Main ── */
     .main{padding:12px 10px 32px;}.main--shared{padding-bottom:0;}.main--content{padding-top:6px;}
-    /* ── Header: logo + tabs na mesma linha, botões abaixo ── */
-    header{flex-wrap:wrap;height:auto;padding:8px 12px;gap:4px;align-items:center;}
+    /* ── Header: brand+botões linha 1, tabs linha 2 ── */
+    header{flex-wrap:wrap;height:auto;padding:8px 12px;gap:0;align-items:center;}
     .header-brand{flex:1;min-width:0;gap:8px;}
-    .brand-logo{height:36px;width:36px;}
+    .brand-logo{height:34px;width:34px;}
     .brand-name{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .brand-sub{display:none;}
-    .nav-tabs{order:2;flex:none;margin-left:8px;padding:3px;gap:2px;}
-    .nav-tab{font-size:11.5px;padding:5px 10px;}
-    .header-right{order:3;width:100%;justify-content:flex-end;padding-top:2px;gap:8px;}
+    .nav-tabs{order:3;width:100%;margin:6px 0 0;padding:3px;gap:2px;justify-content:center;}
+    .nav-tab{font-size:12px;padding:6px 0;flex:1;text-align:center;}
+    .header-right{order:2;flex:none;justify-content:flex-end;padding-top:0;gap:8px;}
     .header-date{display:none;}
     .btn-new{padding:6px 12px;font-size:12px;}
     /* ── KPI — sempre 2 por linha ── */
@@ -405,10 +405,14 @@
     .tl-month{min-width:52px;}
     .tl-name{font-size:10.5px;}
     .tl-count{font-size:9px;white-space:nowrap;}
-    /* ── Tabela mobile: nome completo + meta info abaixo ── */
-    .task-name{white-space:normal;line-height:1.3;font-size:12px;}
+    /* ── Tabela mobile: compacta, meta info abaixo do nome ── */
+    .task-name{white-space:normal;line-height:1.25;font-size:11.5px;}
     .task-mobile-meta{display:flex;}
-    tbody tr.row td{padding:9px 10px;}
+    tbody tr.row td{padding:7px 8px;font-size:12px;}
+    tbody tr.row td.row-num{padding:7px 4px 7px 6px;}
+    thead th[id="th-resp"],tbody td:nth-child(3){width:80px!important;}
+    .chip{font-size:10.5px;padding:2px 6px 2px 4px;max-width:76px;}
+    .avatar{width:15px;height:15px;font-size:7px;}
     /* ── Modal tarefa — padding compacto ── */
     .modal-body{padding:14px 14px;gap:12px;}
     .modal-header{padding:14px 16px 12px;}
@@ -440,14 +444,15 @@
   }
   @media(max-width:400px){
     .kpi-card{min-width:calc(50% - 5px);flex:1 1 calc(50% - 5px);}
-    .nav-tabs{margin-left:4px;}
-    .nav-tab{font-size:10.5px;padding:5px 8px;}
+    .nav-tab{font-size:11px;padding:6px 0;}
     .brand-logo{height:32px;width:32px;}
   }
   /* ── Landscape: tela deitada (altura pequena) ── */
   @media(orientation:landscape) and (max-height:500px){
-    header{padding:5px 12px;gap:2px;}
-    .nav-tab{padding:4px 10px;font-size:11px;}
+    header{padding:5px 12px;gap:2px;flex-wrap:nowrap;}
+    .nav-tabs{order:2;width:auto;margin:0 0 0 12px;flex:none;justify-content:flex-start;}
+    .nav-tab{padding:4px 12px;font-size:11px;flex:none;}
+    .header-right{order:3;}
     .brand-logo{height:30px;width:30px;}
     .main{padding:10px 14px 24px;}
     .modal{max-height:96vh;}
@@ -1743,10 +1748,9 @@ function render(){
         const entCell=`<span class="ent-cell" onclick="clickEntrega(${t.id})" title="Clique para registrar data de entrega">${hasEnt?`<span class="date-done">${t.entrega}</span>`:`<span class="date-empty">—</span>`}<span class="ent-icon">${hasEnt?'✏':'📅'}</span></span>`;
         const isRowToday=(t.prazo===todayStr());
         const rowHol=getHolidaysForDate(t.prazo);
-        const mmResp=(t.resp&&t.resp!=='—')?`<span class="mm-person">👤 ${esc(t.resp)}${(t.dest&&t.dest!=='—')?` › ${esc(t.dest)}`:''}</span>`:'';
         const mmPrazo=(t.prazo&&t.prazo!=='—')?`<span class="mm-prazo${isRowToday?' today-date':''}">📅 ${t.prazo}</span>`:'';
-        const mmBadge=`<span class="badge ${bc}" style="font-size:9.5px;padding:2px 7px"><span class="bdot"></span>${bLabel(t.status)}</span>`;
-        const mobileMeta=`<div class="task-mobile-meta">${mmResp}${mmPrazo}${mmBadge}</div>`;
+        const mmBadge=`<span class="badge ${bc}" style="font-size:9px;padding:2px 6px"><span class="bdot"></span>${bLabel(t.status)}</span>`;
+        const mobileMeta=`<div class="task-mobile-meta">${mmPrazo}${mmBadge}</div>`;
         html+=`<tr class="row${isRowToday?' today-row':''}">
           <td class="row-num">${gi}</td>
           <td><div class="task-name">${esc(t.name)}${t.recurring?'<span title="Tarefa recorrente" style="font-size:10px;opacity:.55;margin-left:4px">🔁</span>':''}${t.note?`<span class="task-note">${esc(t.note)}</span>`:''}${isRowToday&&t.status!=='ENTREGUE'&&t.status!=='ENTREGA ANTECIPADA'&&t.status!=='ENTREGUE COM ATRASO'?'<span class="today-badge">⚡ HOJE</span>':''}</div>${mobileMeta}</td>
