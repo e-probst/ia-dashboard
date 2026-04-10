@@ -1691,6 +1691,7 @@ function saveTask(){
     Object.assign(t,{name,note,resp,dest,email,prazo,entrega,status,_edited:true,_dateEdited:true,
       _userSavedAt:Date.now(),
       recurring:isRec||undefined, recurringGroupId:isRec?groupId:t.recurringGroupId});
+    if(t._emailConfirmedAt) _saveEmailOverride(t.id); // usuário editou após confirmação — bloqueia re-aplicação
     pushTaskToGas(t);
     if(isRec && groupId){
       const existingMths=new Set(allTasks.filter(x=>x.recurringGroupId===groupId).map(x=>x.month));
@@ -2166,6 +2167,9 @@ function loadOverrides(){
 }
 
 const GAS_KEY = 'mabu_gas_config';
+const EMAIL_OVERRIDE_KEY = 'mabu_email_overrides'; // IDs de tarefas onde usuário editou após confirmação por e-mail
+function _loadEmailOverrides(){ try{ return new Set(JSON.parse(localStorage.getItem(EMAIL_OVERRIDE_KEY)||'[]')); }catch(e){ return new Set(); } }
+function _saveEmailOverride(taskId){ try{ const s=_loadEmailOverrides(); s.add(String(taskId)); localStorage.setItem(EMAIL_OVERRIDE_KEY,JSON.stringify([...s])); }catch(e){} }
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec';
 const DEFAULT_EMAIL = 'e.probst@mymabu.com.br'; // E-mail padrão para tarefas sem e-mail cadastrado
 
@@ -2536,14 +2540,15 @@ async function fetchConfirmations(){
     const data = await fetchJsonp(cfg.url + '?action=get_confirmations');
     if(!data.confirmations || !data.confirmations.length) return;
     let applied = 0;
+    const emailOverrides = _loadEmailOverrides(); // IDs onde usuário editou após confirmação — não re-aplicar
     data.confirmations.forEach(c => {
       const t = allTasks.find(x => String(x.id) === String(c.id));
       if(!t) return;
+      // Se o usuário substituiu manualmente esta confirmação, não re-aplica
+      if(emailOverrides.has(String(c.id))) return;
       // Se já foi entregue (qualquer tipo) e já tem data de entrega, não sobrescreve
       const jaEntregue = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO');
       if(jaEntregue && t.entrega && t.entrega!=='—') return;
-      // Se o usuário editou manualmente APÓS a última confirmação por e-mail, respeita a edição
-      if(t._userSavedAt && t._emailConfirmedAt && t._userSavedAt > t._emailConfirmedAt) return;
       // Usa confirmedDate (BRT, gravado pelo GAS) se disponível — evita off-by-1 dia
       // em confirmações próximas à meia-noite (UTC difere de BRT em 3h)
       // Fallback: parse manual do ISO sem new Date() para evitar desvio de timezone
