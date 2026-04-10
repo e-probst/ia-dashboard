@@ -2669,6 +2669,7 @@ function renderNotifyList(){
     const statusClass = group.status;
     const statusLabel = statusLabels[group.status];
 
+    const noEmail = !group.email;
     const taskRows = group.tasks.map((ti, tIdx) => {
       const t = ti.task;
       const isOverdue = t.status === 'ATRASADO';
@@ -2689,8 +2690,6 @@ function renderNotifyList(){
         }
       </div>`;
     }).join('');
-
-    const noEmail = !group.email;
     return `<div class="notify-group" id="ng-${gIdx}">
       <div class="notify-group-header">
         <span class="notify-group-email">${noEmail?'⚠️ Sem e-mail cadastrado':'✉ '+esc(group.email)}</span>
