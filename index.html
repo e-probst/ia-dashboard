@@ -1912,8 +1912,13 @@ function renderPendenciasBlock(){
   allOk.style.display = (!hoje.length && !atrasadas.length) ? 'inline' : 'none';
 
   function itemHtml(t, isAtraso){
+    const hasResp = t.resp && t.resp!=='—';
+    const hasDest = t.dest && t.dest!=='—';
+    const people = hasResp
+      ? '👤 ' + esc(t.resp) + (hasDest ? ' › ' + esc(t.dest) : '')
+      : (hasDest ? '👤 ' + esc(t.dest) : '');
     const meta = [
-      t.resp && t.resp!=='—' ? '👤 '+esc(t.resp) : '',
+      people,
       isAtraso && t.prazo && t.prazo!=='—' ? '📅 '+t.prazo : ''
     ].filter(Boolean).join(' · ');
     const monthTag = `<span class="pend-month-tag${isAtraso?' atraso':''}">${mLabel(t.month)}</span>`;
