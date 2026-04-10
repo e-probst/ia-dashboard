@@ -1691,7 +1691,7 @@ function saveTask(){
     Object.assign(t,{name,note,resp,dest,email,prazo,entrega,status,_edited:true,_dateEdited:true,
       _userSavedAt:Date.now(),
       recurring:isRec||undefined, recurringGroupId:isRec?groupId:t.recurringGroupId});
-    if(t._emailConfirmedAt) _saveEmailOverride(t.id); // usuário editou após confirmação — bloqueia re-aplicação
+    _saveEmailOverride(t.id); // edição manual sempre prevalece sobre confirmação por e-mail
     pushTaskToGas(t);
     if(isRec && groupId){
       const existingMths=new Set(allTasks.filter(x=>x.recurringGroupId===groupId).map(x=>x.month));
