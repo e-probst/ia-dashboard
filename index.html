@@ -2693,7 +2693,7 @@ function renderNotifyList(){
           </div>
         </div>
         ${noEmail
-          ? `<button class="btn-send-one" onclick="showToast('⚠️ Adicione o e-mail do responsável na tarefa (botão ✏️)','');closeNotifyModal();openModal(${t.id})" title="Sem e-mail cadastrado — clique para editar a tarefa">📧 Enviar</button>`
+          ? `<button class="btn-send-one" onclick="closeNotifyModal();openModal(${t.id})" title="Clique para adicionar e-mail à tarefa" style="background:#fffbeb;border-color:#f59e0b;color:#92400e;">✏ Sem e-mail</button>`
           : `<button class="btn-send-one" id="bso-${gIdx}-${tIdx}" onclick="fireOneTask(${gIdx},${tIdx})" title="Enviar e-mail para esta tarefa" ${group.status==='ok'?'disabled':''}>📧 Enviar</button>`
         }
       </div>`;
