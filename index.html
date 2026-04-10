@@ -497,13 +497,14 @@
     .kpi-card.progress{min-width:0;}
     .timeline-wrap{padding:8px 12px;}
     /* Pendências: volta a 2 colunas no landscape */
+    .pend-block{padding:12px 14px 10px;}
     .pend-cols{grid-template-columns:1fr 1fr;gap:14px;}
-    .pend-col-hoje,.pend-col-atraso{border-radius:0;overflow:visible;border:none;}
+    .pend-col-hoje,.pend-col-atraso{border-radius:0;overflow:hidden;border:none;}
     .pend-col-header{background:transparent;border-bottom:1px solid var(--border-light);border-radius:0;padding:0 0 8px;margin-bottom:8px;}
     .pend-col-hoje .pend-col-header,.pend-col-atraso .pend-col-header{background:transparent;border-bottom:1px solid var(--border-light);}
     .pend-col-hoje .pend-col-title,.pend-col-atraso .pend-col-title{color:var(--text-muted);font-size:10px;}
-    .pend-list{max-height:130px;padding:0;}
-    .pend-item{margin:0 0 4px;}
+    .pend-list{max-height:130px;padding:0;overflow-x:hidden;}
+    .pend-item{margin:0 0 4px;min-width:0;width:100%;box-sizing:border-box;}
     .pend-item-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     /* Timeline no landscape: sem mask (mais espaço) */
     .timeline-scroll{-webkit-mask-image:none;mask-image:none;}
