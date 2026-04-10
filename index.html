@@ -465,9 +465,9 @@
     .dash-export-label{display:none;}
     .btn-dash-export{flex:1;justify-content:center;font-size:11.5px;padding:10px 8px;}
     /* ── Gráfico ── */
-    .chart-wrap{padding:12px 12px 10px;margin-bottom:12px;}
-    .chart-title{font-size:12px;margin-bottom:8px;}
-    .chart-canvas-wrap{height:170px;}
+    .chart-wrap{padding:10px 10px 8px;margin-bottom:10px;}
+    .chart-title{font-size:11.5px;margin-bottom:6px;}
+    .chart-canvas-wrap{height:188px;}
     /* ── Relatório ── */
     .report-summary{padding:12px 12px;gap:8px;}
     .report-summary-item{min-width:calc(50% - 4px);padding:12px 8px;}
@@ -3121,6 +3121,7 @@ function renderChart(){
     const ctx = document.getElementById('statusChart');
     if(!ctx) return;
     if(_chartInstance){ _chartInstance.destroy(); _chartInstance=null; }
+    const mob = window.innerWidth <= 600;
     _chartInstance = new Chart(ctx, {
       type: 'line',
       data: { labels, datasets },
@@ -3128,12 +3129,12 @@ function renderChart(){
         responsive:true, maintainAspectRatio:false,
         interaction:{ mode:'index', intersect:false },
         plugins:{
-          legend:{ display:true, position:'bottom', labels:{font:{family:'Nunito',size:10},color:'#3a5080',boxWidth:10,padding:10,usePointStyle:true} },
+          legend:{ display:true, position:'bottom', labels:{font:{family:'Nunito',size:mob?9:10},color:'#3a5080',boxWidth:mob?8:10,padding:mob?5:10,usePointStyle:true} },
           tooltip:{ callbacks:{ label: c => ` ${c.dataset.label}: ${c.parsed.y}` } }
         },
         scales:{
-          x:{ grid:{display:false}, ticks:{font:{family:'Nunito',size:10},color:'#8096b8'} },
-          y:{ beginAtZero:true, ticks:{stepSize:5,font:{family:'Nunito',size:10},color:'#8096b8'}, grid:{color:'#eaf2fc'} }
+          x:{ grid:{display:false}, ticks:{font:{family:'Nunito',size:mob?9:10},color:'#8096b8',maxRotation:0} },
+          y:{ beginAtZero:true, ticks:{maxTicksLimit:mob?5:6,font:{family:'Nunito',size:mob?9:10},color:'#8096b8'}, grid:{color:'#eaf2fc'} }
         }
       }
     });
