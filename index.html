@@ -50,7 +50,7 @@
   .timeline-scroll{overflow-x:auto;overflow-y:visible;padding:8px 2px 8px;}
   .timeline-scroll::-webkit-scrollbar{height:3px;}
   .timeline-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
-  .timeline-track{display:flex;align-items:flex-start;gap:0;position:relative;overflow:visible;}
+  .timeline-track{display:flex;align-items:flex-start;gap:0;position:relative;overflow:visible;width:max-content;min-width:100%;}
   .tl-month{min-width:90px;}
   .timeline-track::before{content:"";position:absolute;top:9px;left:0;right:0;height:2px;background:linear-gradient(to right,var(--blue-main) 0%,var(--blue-main) var(--past-pct,0%),#8fb5d0 var(--past-pct,0%),#8fb5d0 100%);z-index:0;border-radius:99px;}
   .tl-month{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;position:relative;z-index:1;flex:1;}
