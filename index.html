@@ -745,6 +745,12 @@
   .report-summary-num.blue{color:var(--blue-main);}
   .report-summary-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-top:6px;}
 
+  /* ── Overlay de imagem (mobile) ── */
+  #imgOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px;overflow-y:auto;}
+  #imgOverlay.open{display:flex;}
+  #imgOverlay img{max-width:100%;border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.4);}
+  .img-overlay-hint{color:rgba(255,255,255,.75);font-size:12px;font-weight:600;margin-top:10px;text-align:center;}
+  .img-overlay-close{position:fixed;top:14px;right:14px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.35);color:white;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;}
   @media print{
     body{display:none;}
     body.printing{display:block;}
@@ -1052,6 +1058,12 @@
 </div>
 
 <!-- Modal Lixeira -->
+<div id="imgOverlay" onclick="if(event.target===this)closeImgOverlay()">
+  <button class="img-overlay-close" onclick="closeImgOverlay()">✕</button>
+  <img id="imgOverlayImg" src="" alt="Pendências">
+  <div class="img-overlay-hint">📱 Segure a imagem para salvar na galeria</div>
+</div>
+
 <div class="modal-overlay" id="trashOverlay" onclick="closeTrashOutside(event)">
   <div class="trash-modal">
     <div class="modal-header"><span class="modal-title">🗑 Lixeira</span><button class="modal-close" onclick="closeTrash()">✕</button></div>
@@ -1752,6 +1764,7 @@ function updateTrashBadge(){const b=document.getElementById('trashBadge');if(tra
 function openTrash(){renderTrashList();document.getElementById('trashOverlay').classList.add('open');}
 function closeTrash(){document.getElementById('trashOverlay').classList.remove('open');}
 function closeTrashOutside(e){if(e.target===document.getElementById('trashOverlay'))closeTrash();}
+function closeImgOverlay(){const o=document.getElementById('imgOverlay');o.classList.remove('open');document.getElementById('imgOverlayImg').src='';}
 
 
 function renderHolidayBanner(){
@@ -3024,10 +3037,9 @@ function exportImageDash(){
         const dataUrl=canvas.toDataURL('image/png');
         const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if(isMobile){
-          // iOS não suporta link.click() para download — abre em nova aba para salvar
-          const win=window.open('','_blank');
-          if(win){ win.document.write(`<img src="${dataUrl}" style="max-width:100%">`); win.document.close(); showToast('📱 Segure a imagem para salvar','green'); }
-          else { showToast('⚠️ Permita popups para baixar a imagem',''); }
+          // iOS não suporta link.click() — mostra overlay com botão fechar
+          document.getElementById('imgOverlayImg').src=dataUrl;
+          document.getElementById('imgOverlay').classList.add('open');
         } else {
           const link=document.createElement('a');
           link.download=`pendencias-mabu-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.png`;
