@@ -487,6 +487,9 @@
     .nav-tab{padding:4px 12px;font-size:11px;flex:none;}
     .header-right{order:3;}
     .brand-logo{height:30px;width:30px;}
+    .brand-name{font-size:13px;}
+    .brand-sub{display:none;}
+    .header-date{display:none;}
     .main{padding:10px 14px 24px;}
     .modal{max-height:96vh;}
     .notify-modal{max-height:96vh;}
@@ -506,9 +509,17 @@
     .pend-list{max-height:130px;padding:0;overflow-x:hidden;}
     .pend-item{margin:0 0 4px;min-width:0;width:100%;box-sizing:border-box;}
     .pend-item-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    /* Timeline no landscape: sem mask (mais espaço) */
+    /* Timeline no landscape: sem mask, compacta */
     .timeline-scroll{-webkit-mask-image:none;mask-image:none;}
+    .timeline-track::before{top:10px;}
     .tl-dot{width:20px;height:20px;}
+    .tl-month{min-width:52px;}
+    .tl-name{font-size:10.5px;}
+    .tl-count{font-size:9px;white-space:nowrap;}
+    .tl-status-dots{display:none;}
+    .tl-geral-sep{height:20px;}
+    /* Controls: esconde contagem de resultados */
+    .results-count{display:none;}
     /* ── Atividades: card layout igual portrait (tabela cortava à direita) ── */
     thead{display:none;}
     table{display:block;}
