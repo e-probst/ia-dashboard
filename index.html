@@ -2545,10 +2545,8 @@ async function fetchConfirmations(){
       const t = allTasks.find(x => String(x.id) === String(c.id));
       if(!t) return;
       // Se o usuário substituiu manualmente esta confirmação, não re-aplica
+      // (Re-confirmações por e-mail são sempre aceitas — permitem corrigir confirmações incorretas)
       if(emailOverrides.has(String(c.id))) return;
-      // Se já foi entregue (qualquer tipo) e já tem data de entrega, não sobrescreve
-      const jaEntregue = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO');
-      if(jaEntregue && t.entrega && t.entrega!=='—') return;
       // Usa confirmedDate (BRT, gravado pelo GAS) se disponível — evita off-by-1 dia
       // em confirmações próximas à meia-noite (UTC difere de BRT em 3h)
       // Fallback: parse manual do ISO sem new Date() para evitar desvio de timezone
