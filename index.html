@@ -1689,6 +1689,7 @@ function saveTask(){
     // Garante groupId se recorrente
     const groupId=isRec?(t.recurringGroupId||String(Date.now())):t.recurringGroupId;
     Object.assign(t,{name,note,resp,dest,email,prazo,entrega,status,_edited:true,_dateEdited:true,
+      _userSavedAt:Date.now(),
       recurring:isRec||undefined, recurringGroupId:isRec?groupId:t.recurringGroupId});
     pushTaskToGas(t);
     if(isRec && groupId){
@@ -2070,6 +2071,8 @@ function saveOverrides(){
         entrega:         t._dateEdited ? (t.entrega||'—') : undefined,
         recurring:       t.recurring        || undefined,
         recurringGroupId:t.recurringGroupId || undefined,
+        _emailConfirmedAt: t._emailConfirmedAt || undefined,
+        _userSavedAt:      t._userSavedAt      || undefined,
       };
       if(t._new){ newTasks.push({...payload, id:t.id, name:t.name, _new:true,
         prazo: t.prazo||'—', entrega: t.entrega||'—', _dateEdited: true}); }
@@ -2142,8 +2145,10 @@ function loadOverrides(){
           if(saved.prazo   && saved.prazo   !== '—') t.prazo   = saved.prazo;
           if(saved.entrega && saved.entrega !== '—') t.entrega = saved.entrega;
         }
-        if(saved.recurring)        t.recurring        = saved.recurring;
-        if(saved.recurringGroupId) t.recurringGroupId = saved.recurringGroupId;
+        if(saved.recurring)          t.recurring          = saved.recurring;
+        if(saved.recurringGroupId)   t.recurringGroupId   = saved.recurringGroupId;
+        if(saved._emailConfirmedAt)  t._emailConfirmedAt  = saved._emailConfirmedAt;
+        if(saved._userSavedAt)       t._userSavedAt       = saved._userSavedAt;
         count++;
       }
     });
@@ -2537,6 +2542,8 @@ async function fetchConfirmations(){
       // Se já foi entregue (qualquer tipo) e já tem data de entrega, não sobrescreve
       const jaEntregue = (t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO');
       if(jaEntregue && t.entrega && t.entrega!=='—') return;
+      // Se o usuário editou manualmente APÓS a última confirmação por e-mail, respeita a edição
+      if(t._userSavedAt && t._emailConfirmedAt && t._userSavedAt > t._emailConfirmedAt) return;
       // Usa confirmedDate (BRT, gravado pelo GAS) se disponível — evita off-by-1 dia
       // em confirmações próximas à meia-noite (UTC difere de BRT em 3h)
       // Fallback: parse manual do ISO sem new Date() para evitar desvio de timezone
@@ -2551,6 +2558,7 @@ async function fetchConfirmations(){
       t.entrega = fmt;
       t.status  = calcStatus(t.prazo, fmt); // calcula corretamente (antecipada, no prazo ou com atraso)
       t._edited = true; t._dateEdited = true;
+      t._emailConfirmedAt = Date.now();
       applied++;
       pushTaskToGas(t); // sincroniza imediatamente com o Sheets ao confirmar por e-mail
     });
@@ -2685,7 +2693,7 @@ function renderNotifyList(){
           </div>
         </div>
         ${noEmail
-          ? `<button class="btn-send-one" onclick="closeNotifyModal();openModal(${t.id})" title="Editar tarefa e adicionar e-mail" style="background:var(--blue-ghost);border-color:var(--blue-mid);color:var(--blue-dark)">✏ Editar</button>`
+          ? `<button class="btn-send-one" onclick="showToast('⚠️ Adicione o e-mail do responsável na tarefa (botão ✏️)','');closeNotifyModal();openModal(${t.id})" title="Sem e-mail cadastrado — clique para editar a tarefa">📧 Enviar</button>`
           : `<button class="btn-send-one" id="bso-${gIdx}-${tIdx}" onclick="fireOneTask(${gIdx},${tIdx})" title="Enviar e-mail para esta tarefa" ${group.status==='ok'?'disabled':''}>📧 Enviar</button>`
         }
       </div>`;
@@ -2777,7 +2785,7 @@ async function fireEmails(){
       ...g,
       pendingTasks: g.tasks.filter(ti => !ti.delivered && !deliveredStatus.has(ti.task.status))
     }))
-    .filter(g => g.pendingTasks.length > 0 && g.status !== 'ok');
+    .filter(g => g.pendingTasks.length > 0 && g.status !== 'ok' && g.email);
 
   if(!pendingGroups.length){
     showToast('ℹ️ Nenhuma tarefa pendente para disparar','');
