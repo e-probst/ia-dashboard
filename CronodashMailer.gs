@@ -1574,3 +1574,110 @@ function importMarch2026() {
   Logger.log(msg);
   try { SpreadsheetApp.getUi().alert('Concluido! '+msg); } catch(e) {}
 }
+
+// ── importDecember2025 ────────────────────────────────────────
+// Replica as tarefas de novembro como dezembro, ajustando o mes nas datas.
+// Mes bumped: 11→12 (nov→dez) e 12→01 do ano seguinte (dez→jan).
+// Entrega zerada: tarefas de dezembro partem sem data de entrega.
+// Remove duplicatas existentes de dezembro antes de importar.
+function importDecember2025() {
+  var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var shT = ss.getSheetByName('Todos') || ss.getSheets()[0];
+
+  var dT  = shT.getDataRange().getValues();
+  var hT  = dT[0].map(function(h){ return String(h).trim().toLowerCase(); });
+  function ci(a){ for(var i=0;i<a.length;i++){var x=hT.indexOf(a[i].toLowerCase());if(x>=0)return x;} return -1; }
+  var cId=ci(['id']),    cNm=ci(['nome','name']),  cNt=ci(['nota','note']);
+  var cRs=ci(['responsavel','resp']), cDs=ci(['destinatario','dest']);
+  var cEm=ci(['email','e-mail']),    cPr=ci(['prazo']),      cEn=ci(['entrega']);
+  var cSt=ci(['status']), cMs=ci(['mes','month']), cAt=ci(['atualizado em']);
+  if(cAt<0) cAt=SHEET_COLS.length-1;
+  var ncols = dT[0].length;
+
+  // Converte valor de celula de data para string DD/MM/YYYY
+  function getDateStr(val){
+    if(!val || val === '—' || val === '-') return '';
+    if(val instanceof Date) return Utilities.formatDate(val, 'America/Sao_Paulo', 'dd/MM/yyyy');
+    var s = String(val).trim();
+    return (s === '' || s === '-') ? '' : s;
+  }
+
+  // Avanca o mes em 1 (novembro→dezembro, dezembro→janeiro do ano seguinte)
+  function bumpMonth(dateStr){
+    if(!dateStr) return '';
+    var p = dateStr.split('/');
+    if(p.length !== 3) return dateStr;
+    var d=parseInt(p[0],10), m=parseInt(p[1],10), y=parseInt(p[2],10);
+    m++; if(m > 12){ m=1; y++; }
+    return String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y;
+  }
+
+  // Coleta tarefas de novembro e calcula maxId
+  var novTasks = [], maxId = 0;
+  for(var r=1; r<dT.length; r++){
+    var mes = cMs>=0 ? String(dT[r][cMs]||'').toLowerCase() : '';
+    var id  = Number(dT[r][cId])||0; if(id > maxId) maxId = id;
+    if(mes === 'nov') novTasks.push(dT[r]);
+  }
+  if(!novTasks.length){
+    try { SpreadsheetApp.getUi().alert('Nenhuma tarefa de novembro encontrada em Todos. Verifique o campo Mes.'); } catch(e) {}
+    Logger.log('importDecember2025: nenhuma tarefa de novembro encontrada.');
+    return;
+  }
+
+  // Remove linhas existentes de dezembro (evita duplicatas)
+  var dTNew = [dT[0]], removedDez = 0;
+  for(var r=1; r<dT.length; r++){
+    var mes = cMs>=0 ? String(dT[r][cMs]||'').toLowerCase() : '';
+    if(mes !== 'dez'){ dTNew.push(dT[r]); }
+    else { removedDez++; }
+  }
+
+  // Cria tarefas de dezembro a partir do template de novembro
+  var now=new Date().toISOString(), dezRows=[], added=0;
+  novTasks.forEach(function(t){
+    maxId++;
+    var nr = new Array(ncols).fill('');
+    nr[cId]=maxId;
+    nr[cNm]=cNm>=0 ? String(t[cNm]||'') : '';
+    nr[cNt]=cNt>=0 ? String(t[cNt]||'') : '';
+    nr[cRs]=cRs>=0 ? (String(t[cRs]||'')||'—') : '—';
+    nr[cDs]=cDs>=0 ? (String(t[cDs]||'')||'—') : '—';
+    nr[cEm]=cEm>=0 ? String(t[cEm]||'') : '';
+    nr[cPr]=cPr>=0 ? bumpMonth(getDateStr(t[cPr])) : '';
+    nr[cEn]=''; // entrega zerada — dezembro começa sem entregas
+    nr[cSt]='';
+    if(cMs>=0) nr[cMs]='dez';
+    nr[cAt]=now;
+    dTNew.push(nr); added++;
+    dezRows.push(nr.slice(0, SHEET_COLS.length));
+  });
+
+  // Garante aba Dezembro
+  var shD = ss.getSheetByName('Dezembro') || ss.insertSheet('Dezembro');
+
+  // Grava Todos: @text nas colunas de data das novas linhas ANTES de setValues
+  var firstDezRow = dTNew.length - added + 1;
+  if(added > 0 && cPr>=0 && cEn>=0){
+    shT.getRange(firstDezRow, cPr+1, added, 1).setNumberFormat('@');
+    shT.getRange(firstDezRow, cEn+1, added, 1).setNumberFormat('@');
+  }
+  shT.getRange(1,1,dTNew.length,ncols).setValues(dTNew);
+  if(dT.length > dTNew.length){
+    shT.deleteRows(dTNew.length+1, dT.length-dTNew.length);
+  }
+
+  // Grava aba Dezembro
+  shD.clearContents();
+  var mData=[SHEET_COLS].concat(dezRows);
+  if(dezRows.length > 0){
+    shD.getRange(2,7,dezRows.length,1).setNumberFormat('@');
+    shD.getRange(2,8,dezRows.length,1).setNumberFormat('@');
+  }
+  shD.getRange(1,1,mData.length,SHEET_COLS.length).setValues(mData);
+
+  invalidateTasksCache();
+  var msg = 'importDecember2025: '+added+' tarefas de dezembro criadas a partir de novembro ('+removedDez+' antigas/duplicatas removidas).';
+  Logger.log(msg);
+  try { SpreadsheetApp.getUi().alert('Concluido! '+msg); } catch(e) {}
+}
