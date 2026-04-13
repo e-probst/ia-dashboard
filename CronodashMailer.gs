@@ -1522,49 +1522,55 @@ function importMarch2026() {
   if(cAt<0) cAt=SHEET_COLS.length-1;
   var ncols = dT[0].length;
 
-  // Mapa nome|resp -> indice em dT (0-based)
-  var nmap={}, maxId=0;
+  // Separa linhas que NAO sao de marco (preserva dez e outros meses intactos)
+  // Tarefas com mes='mar' sao removidas e reimportadas do zero — evita duplicatas
+  var dTNew = [dT[0]]; // preserva header
+  var maxId = 0, removedMar = 0;
   for(var r=1; r<dT.length; r++){
-    var key=String(dT[r][cNm]||'')+'|'+String(dT[r][cRs]||'');
-    nmap[key]=r;
-    var id=Number(dT[r][cId])||0; if(id>maxId) maxId=id;
+    var mes = cMs>=0 ? String(dT[r][cMs]||'').toLowerCase() : '';
+    if(mes !== 'mar'){
+      dTNew.push(dT[r]);
+      var rid = Number(dT[r][cId])||0; if(rid > maxId) maxId = rid;
+    } else { removedMar++; }
   }
 
-  // Atualiza em memoria, coleta linhas para Marco
-  var now=new Date().toISOString(), marcoRows=[], added=0, updated=0;
+  // Cria todas as tarefas de marco como novas linhas (IDs sequenciais apos o maxId)
+  var now=new Date().toISOString(), marcoRows=[], added=0;
   TASKS.forEach(function(t){
-    var key=t.nome+'|'+t.resp, ri=nmap[key], nr;
-    if(ri !== undefined){
-      dT[ri][cPr]=t.prazo; dT[ri][cEn]=t.entrega;
-      dT[ri][cNt]=t.nota;  dT[ri][cAt]=now;
-      if(cMs>=0) dT[ri][cMs]='mar'; // corrige mes: tarefa pode ter sido de outro mes
-      nr=dT[ri]; updated++;
-    } else {
-      maxId++;
-      nr=new Array(ncols).fill('');
-      nr[cId]=maxId; nr[cNm]=t.nome; nr[cNt]=t.nota;
-      nr[cRs]=t.resp||'—'; nr[cDs]=t.dest||'—'; nr[cEm]='';
-      nr[cPr]=t.prazo; nr[cEn]=t.entrega; nr[cSt]='';
-      nr[cMs]='mar'; nr[cAt]=now;
-      dT.push(nr); nmap[key]=dT.length-1; added++;
-    }
+    maxId++;
+    var nr=new Array(ncols).fill('');
+    nr[cId]=maxId; nr[cNm]=t.nome; nr[cNt]=t.nota;
+    nr[cRs]=t.resp||'—'; nr[cDs]=t.dest||'—'; nr[cEm]='';
+    nr[cPr]=t.prazo; nr[cEn]=t.entrega; nr[cSt]='';
+    if(cMs>=0) nr[cMs]='mar'; nr[cAt]=now;
+    dTNew.push(nr); added++;
     marcoRows.push(nr.slice(0, SHEET_COLS.length));
   });
 
-  // Grava Todos em lote (1 API call)
-  shT.getRange(1,1,dT.length,ncols).setValues(dT);
-  shT.getRange(2,cPr+1,dT.length-1,1).setNumberFormat('@');
-  shT.getRange(2,cEn+1,dT.length-1,1).setNumberFormat('@');
+  // Grava Todos: aplica @text nas novas linhas de marco ANTES de setValues
+  // (evita que o Sheets auto-converta strings DD/MM/YYYY para Date object)
+  var firstMarRow = dTNew.length - added + 1; // linha 1-indexed onde comecam as tarefas de marco
+  if(added > 0 && cPr>=0 && cEn>=0){
+    shT.getRange(firstMarRow, cPr+1, added, 1).setNumberFormat('@');
+    shT.getRange(firstMarRow, cEn+1, added, 1).setNumberFormat('@');
+  }
+  shT.getRange(1,1,dTNew.length,ncols).setValues(dTNew);
+  // Remove linhas excedentes (antigas linhas de marco que ficaram abaixo da nova ultima linha)
+  if(dT.length > dTNew.length){
+    shT.deleteRows(dTNew.length+1, dT.length-dTNew.length);
+  }
 
-  // Grava Marco em lote: limpa e reescreve (2 API calls)
+  // Grava Marco: @text ANTES de setValues
   shM.clearContents();
   var mData=[SHEET_COLS].concat(marcoRows);
+  if(marcoRows.length > 0){
+    shM.getRange(2,7,marcoRows.length,1).setNumberFormat('@'); // Prazo
+    shM.getRange(2,8,marcoRows.length,1).setNumberFormat('@'); // Entrega
+  }
   shM.getRange(1,1,mData.length,SHEET_COLS.length).setValues(mData);
-  shM.getRange(2,cPr+1,marcoRows.length,1).setNumberFormat('@');
-  shM.getRange(2,cEn+1,marcoRows.length,1).setNumberFormat('@');
 
   invalidateTasksCache();
-  var msg = 'importMarch2026: '+updated+' atualizadas, '+added+' novas.';
+  var msg = 'importMarch2026: '+added+' tarefas de marco importadas ('+removedMar+' antigas/duplicatas removidas, outros meses intactos).';
   Logger.log(msg);
   try { SpreadsheetApp.getUi().alert('Concluido! '+msg); } catch(e) {}
 }

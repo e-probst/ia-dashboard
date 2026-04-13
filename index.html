@@ -2556,6 +2556,13 @@ async function fetchConfirmations(){
       const _sessionKey = String(c.id) + '|' + cAt;
       if(_appliedConfirmSet.has(_sessionKey)) return; // já aplicado nesta sessão
       if(t._emailConfirmedAt && t._emailConfirmedIso === cAt) return;
+      // Se a tarefa já tem entrega registrada (veio do Sheets), reconhece silenciosamente
+      // sem re-aplicar nem exibir toast (evita "29 entregas" a cada reload)
+      if(t.entrega && t.entrega !== '—') {
+        if(!t._emailConfirmedAt){ t._emailConfirmedAt = Date.now(); t._emailConfirmedIso = cAt; }
+        _appliedConfirmSet.add(_sessionKey);
+        return;
+      }
       // Usa confirmedDate (BRT, gravado pelo GAS) se disponível — evita off-by-1 dia
       // em confirmações próximas à meia-noite (UTC difere de BRT em 3h)
       // Fallback: parse manual do ISO sem new Date() para evitar desvio de timezone
