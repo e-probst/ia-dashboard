@@ -1681,3 +1681,15 @@ function importDecember2025() {
   Logger.log(msg);
   try { SpreadsheetApp.getUi().alert('Concluido! '+msg); } catch(e) {}
 }
+
+// ── fixAll ────────────────────────────────────────────────────
+// Corrige tudo de uma vez:
+//   1. Reimporta marco (remove duplicatas, nao toca outros meses)
+//   2. Restaura dezembro a partir de novembro
+// Execute UMA VEZ apos colar o codigo atualizado.
+function fixAll() {
+  Logger.log('fixAll: iniciando correcao completa...');
+  importMarch2026();
+  importDecember2025();
+  Logger.log('fixAll: concluido.');
+}
