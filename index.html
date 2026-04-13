@@ -2168,6 +2168,48 @@ function loadOverrides(){
   }catch(e){ console.warn('[Mabu] loadOverrides failed', e); }
 }
 
+// Re-aplica overrides do localStorage em tarefas já presentes em allTasks que ainda não têm _edited.
+// loadOverrides() roda no init() com allTasks=[] (sem hardcode), portanto overrides de tarefas
+// vindas do Sheets nunca são aplicados — este helper corrige isso após fetchTasksFromGas preencher allTasks.
+function _applyStoredOverrides() {
+  try {
+    const raw = localStorage.getItem(TASKS_KEY);
+    if (!raw) return;
+    let data; try { data = JSON.parse(raw); } catch(e) { return; }
+    const ov = data.overrides || {};
+    if (!Object.keys(ov).length) return;
+    const trashedIds = new Set(trash.map(t => String(t.id)));
+    let count = 0;
+    allTasks.forEach(t => {
+      const saved = ov[t.id];
+      if (!saved || trashedIds.has(String(t.id)) || t._edited) return; // já tem edição local, não sobrescreve
+      const originalEmail = t.email;
+      Object.assign(t, {
+        name:  saved.name  || t.name,
+        note:  saved.note  != null ? saved.note  : t.note,
+        email: saved.email != null ? saved.email : t.email,
+        resp:  saved.resp  || t.resp,
+        dest:  saved.dest  || t.dest,
+        month: saved.month || t.month,
+        _edited: true,
+        _dateEdited: !!saved._dateEdited,
+      });
+      if (!t.email && originalEmail) t.email = originalEmail;
+      if (saved._dateEdited) {
+        if (saved.prazo   && saved.prazo   !== '—') t.prazo   = saved.prazo;
+        if (saved.entrega && saved.entrega !== '—') t.entrega = saved.entrega;
+      }
+      if (saved.recurring)          t.recurring          = saved.recurring;
+      if (saved.recurringGroupId)   t.recurringGroupId   = saved.recurringGroupId;
+      if (saved._emailConfirmedAt)  t._emailConfirmedAt  = saved._emailConfirmedAt;
+      if (saved._emailConfirmedIso != null) t._emailConfirmedIso = saved._emailConfirmedIso;
+      if (saved._userSavedAt)       t._userSavedAt       = saved._userSavedAt;
+      count++;
+    });
+    if (count) console.log('[Mabu] _applyStoredOverrides: ' + count + ' overrides re-aplicados após fetch');
+  } catch(e) { console.warn('[Mabu] _applyStoredOverrides failed', e); }
+}
+
 const GAS_KEY = 'mabu_gas_config';
 const EMAIL_OVERRIDE_KEY = 'mabu_email_overrides'; // IDs de tarefas onde usuário editou após confirmação por e-mail
 function _loadEmailOverrides(){ try{ return new Set(JSON.parse(localStorage.getItem(EMAIL_OVERRIDE_KEY)||'[]')); }catch(e){ return new Set(); } }
@@ -2496,6 +2538,7 @@ async function fetchTasksFromGas(){
 
     _hideDataLoading(); // esconde loading assim que os dados chegarem
     if(updated || added){
+      _applyStoredOverrides(); // re-aplica overrides que não puderam ser aplicados no init (allTasks estava vazio)
       applyBizDayAdjustments();
       recalcAllStatuses();
       renderTimeline();
