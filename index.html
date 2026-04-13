@@ -2367,7 +2367,7 @@ async function syncTasksToGas(){
     // que fetchTasksFromGas sobrescreva tarefas ainda pendentes após o sync.
     const delivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
     edited.forEach(t => {
-      if(delivered.has(t.status) && t.entrega && t.entrega !== '—' && !t._emailConfirmedAt) delete t._edited;
+      if(delivered.has(t.status) && t.entrega && t.entrega !== '—') delete t._edited;
     });
   }catch(e){ console.warn('[GAS] sync failed:', e); }
 }
