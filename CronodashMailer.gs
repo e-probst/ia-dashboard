@@ -1537,6 +1537,7 @@ function importMarch2026() {
     if(ri !== undefined){
       dT[ri][cPr]=t.prazo; dT[ri][cEn]=t.entrega;
       dT[ri][cNt]=t.nota;  dT[ri][cAt]=now;
+      if(cMs>=0) dT[ri][cMs]='mar'; // corrige mes: tarefa pode ter sido de outro mes
       nr=dT[ri]; updated++;
     } else {
       maxId++;
@@ -1547,7 +1548,7 @@ function importMarch2026() {
       nr[cMs]='mar'; nr[cAt]=now;
       dT.push(nr); nmap[key]=dT.length-1; added++;
     }
-    marcoRows.push(nr.slice());
+    marcoRows.push(nr.slice(0, SHEET_COLS.length));
   });
 
   // Grava Todos em lote (1 API call)
