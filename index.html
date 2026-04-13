@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -2072,8 +2072,9 @@ function saveOverrides(){
         entrega:         t._dateEdited ? (t.entrega||'—') : undefined,
         recurring:       t.recurring        || undefined,
         recurringGroupId:t.recurringGroupId || undefined,
-        _emailConfirmedAt: t._emailConfirmedAt || undefined,
-        _userSavedAt:      t._userSavedAt      || undefined,
+        _emailConfirmedAt:  t._emailConfirmedAt  || undefined,
+        _emailConfirmedIso: t._emailConfirmedIso != null ? t._emailConfirmedIso : undefined,
+        _userSavedAt:       t._userSavedAt       || undefined,
       };
       if(t._new){ newTasks.push({...payload, id:t.id, name:t.name, _new:true,
         prazo: t.prazo||'—', entrega: t.entrega||'—', _dateEdited: true}); }
@@ -2149,6 +2150,7 @@ function loadOverrides(){
         if(saved.recurring)          t.recurring          = saved.recurring;
         if(saved.recurringGroupId)   t.recurringGroupId   = saved.recurringGroupId;
         if(saved._emailConfirmedAt)  t._emailConfirmedAt  = saved._emailConfirmedAt;
+        if(saved._emailConfirmedIso != null) t._emailConfirmedIso = saved._emailConfirmedIso;
         if(saved._userSavedAt)       t._userSavedAt       = saved._userSavedAt;
         count++;
       }
@@ -2365,7 +2367,7 @@ async function syncTasksToGas(){
     // que fetchTasksFromGas sobrescreva tarefas ainda pendentes após o sync.
     const delivered = new Set(['ENTREGUE','ENTREGA ANTECIPADA','ENTREGUE COM ATRASO']);
     edited.forEach(t => {
-      if(delivered.has(t.status) && t.entrega && t.entrega !== '—') delete t._edited;
+      if(delivered.has(t.status) && t.entrega && t.entrega !== '—' && !t._emailConfirmedAt) delete t._edited;
     });
   }catch(e){ console.warn('[GAS] sync failed:', e); }
 }
@@ -2532,6 +2534,8 @@ async function deleteTaskFromGas(id, month){
   }catch(e){ console.warn('[GAS] delete failed:', e); }
 }
 // ── Confirmações de entrega via e-mail ────
+// Set de sessão: evita re-aplicar a mesma confirmação múltiplas vezes na mesma sessão
+const _appliedConfirmSet = new Set();
 async function fetchConfirmations(){
   const cfg = loadGasConfig();
   if(!cfg.url) return;
@@ -2545,8 +2549,13 @@ async function fetchConfirmations(){
       const t = allTasks.find(x => String(x.id) === String(c.id));
       if(!t) return;
       // Se o usuário substituiu manualmente esta confirmação, não re-aplica
-      // (Re-confirmações por e-mail são sempre aceitas — permitem corrigir confirmações incorretas)
       if(emailOverrides.has(String(c.id))) return;
+      // Se a confirmação já foi aplicada anteriormente (mesmo confirmedAt), pula
+      // Re-confirmação real tem confirmedAt diferente → passa
+      const cAt = c.confirmedAt || '';
+      const _sessionKey = String(c.id) + '|' + cAt;
+      if(_appliedConfirmSet.has(_sessionKey)) return; // já aplicado nesta sessão
+      if(t._emailConfirmedAt && t._emailConfirmedIso === cAt) return;
       // Usa confirmedDate (BRT, gravado pelo GAS) se disponível — evita off-by-1 dia
       // em confirmações próximas à meia-noite (UTC difere de BRT em 3h)
       // Fallback: parse manual do ISO sem new Date() para evitar desvio de timezone
@@ -2554,14 +2563,16 @@ async function fetchConfirmations(){
       if(c.confirmedDate && /^\d{2}\/\d{2}\/\d{4}$/.test(c.confirmedDate)){
         fmt = c.confirmedDate;
       } else {
-        const isoDate = (c.confirmedAt||'').slice(0,10); // "2026-04-06"
+        const isoDate = cAt.slice(0,10); // "2026-04-06"
         const [yr, mo, da] = isoDate.split('-');
         fmt = (da && mo && yr) ? `${da}/${mo}/${yr}` : todayStr();
       }
       t.entrega = fmt;
-      t.status  = calcStatus(t.prazo, fmt); // calcula corretamente (antecipada, no prazo ou com atraso)
+      t.status  = calcStatus(t.prazo, fmt);
       t._edited = true; t._dateEdited = true;
       t._emailConfirmedAt = Date.now();
+      t._emailConfirmedIso = cAt; // guarda o confirmedAt para evitar re-aplicação do mesmo ciclo
+      _appliedConfirmSet.add(_sessionKey); // marca como aplicado na sessão atual
       applied++;
       pushTaskToGas(t); // sincroniza imediatamente com o Sheets ao confirmar por e-mail
     });

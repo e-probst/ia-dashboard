@@ -110,27 +110,22 @@ function handleConfirmDelivery(params) {
     return HtmlService.createHtmlOutput('<h2>Link inválido.</h2>');
   }
 
-  // Verifica se já confirmado
   var props = PropertiesService.getScriptProperties();
   var key   = 'confirm_' + id;
-  var already = props.getProperty(key);
+  var already = props.getProperty(key); // só para saber se é re-confirmação (exibição)
 
-  if (!already) {
-    var confirmedAt   = new Date().toISOString();
-    // confirmedDate é a data em horário de Brasília (BRT); confirmedAt (UTC ISO) pode divergir
-    // por 1 dia perto da meia-noite → dashboard usa confirmedDate para exibir a data correta
-    var confirmedDate = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
-    var data = JSON.stringify({ id: id, name: name, prazo: prazo, confirmedAt: confirmedAt, confirmedDate: confirmedDate });
-    props.setProperty(key, data);
-    Logger.log('Entrega confirmada via e-mail: id=' + id + ' | ' + name);
-    // Atualiza imediatamente a planilha (evita lag até o próximo polling do dashboard)
-    if (SPREADSHEET_ID) {
-      try {
-        var today = confirmedDate; // reutiliza a data BRT já calculada
-        confirmDeliveryInSheet(id, today, prazo, month);
-      } catch(e) {
-        Logger.log('handleConfirmDelivery: erro ao atualizar planilha: ' + e.message);
-      }
+  // Sempre registra a nova confirmação — permite re-confirmar quando a entrega real acontece depois
+  var confirmedAt   = new Date().toISOString();
+  var confirmedDate = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+  var data = JSON.stringify({ id: id, name: name, prazo: prazo, confirmedAt: confirmedAt, confirmedDate: confirmedDate });
+  props.setProperty(key, data);
+  Logger.log('Entrega confirmada via e-mail: id=' + id + ' | ' + name + (already ? ' (re-confirmação)' : ''));
+  if (SPREADSHEET_ID) {
+    try {
+      var today = confirmedDate;
+      confirmDeliveryInSheet(id, today, prazo, month);
+    } catch(e) {
+      Logger.log('handleConfirmDelivery: erro ao atualizar planilha: ' + e.message);
     }
   }
 
@@ -458,19 +453,17 @@ function buildConfirmationPage(name, prazo, alreadyDone, resp, allRespTasks, vie
   // ── Bloco de confirmação (modo confirmar) ──
   var confirmBlock = '';
   if (!viewOnly) {
-    var confirmBg  = alreadyDone ? '#fff8ec' : '#e8f5ee';
-    var confirmClr = alreadyDone ? '#b45300' : '#1a7a4a';
-    var confirmIcon = alreadyDone ? '⚠️' : '✅';
-    var confirmMsg  = alreadyDone
-      ? 'Esta entrega já havia sido registrada anteriormente.'
-      : 'Confirmação registrada em <strong>' + now + '</strong>.<br>O dashboard será atualizado automaticamente.';
+    var confirmBg  = '#e8f5ee';
+    var confirmClr = '#1a7a4a';
+    var confirmIcon = '✅';
+    var confirmMsg  = 'Confirmação registrada em <strong>' + now + '</strong>.<br>O dashboard será atualizado automaticamente.';
     confirmBlock =
       '<div style="background:' + confirmBg + ';border-radius:10px;padding:16px 20px;margin-bottom:20px">'
       + '<div style="display:flex;align-items:flex-start;gap:12px">'
       +   '<div style="font-size:28px;line-height:1">' + confirmIcon + '</div>'
       +   '<div style="flex:1">'
       +     '<div style="font-size:14px;font-weight:700;color:' + confirmClr + ';margin-bottom:4px">'
-      +       (alreadyDone ? 'Já confirmado' : 'Entrega confirmada!')
+      +       (alreadyDone ? 'Re-confirmação registrada!' : 'Entrega confirmada!')
       +     '</div>'
       +     '<div style="font-size:13px;font-weight:700;color:#0a1e45;margin-bottom:6px">' + esc(name) + '</div>'
       +     (prazo ? '<div style="font-size:12px;color:#8096b8">📅 Prazo: ' + esc(prazo) + '</div>' : '')
@@ -1279,4 +1272,298 @@ function testSheetAccess() {
   var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
   var rows  = sheet.getLastRow();
   Logger.log('Acesso OK! Planilha: ' + ss.getName() + ' | Aba: ' + sheet.getName() + ' | Linhas: ' + rows);
+}
+
+// importMarch2026() - Cole no final do CronodashMailer.gs e execute uma vez
+// Versão rápida: lê tudo de uma vez, atualiza em memória, escreve em lote (poucos API calls)
+function importMarch2026() {
+  var TASKS = [
+    {nome:'CI Despesa de água Condomínio Prestige',resp:'Cristiano Almeida',dest:'SCM Fiscal/Contábil / Requestia',prazo:'23/03/2026',entrega:'20/03/2026',nota:''},
+    {nome:'CI Energia Elétrica Condomínio Prestige',resp:'Cristiano Almeida',dest:'SCM Fiscal/Contábil / Requestia',prazo:'23/03/2026',entrega:'20/03/2026',nota:''},
+    {nome:'Folha e Provisões (Central, MCB, Prestige, Condos)',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'30/03/2026',entrega:'30/03/2026',nota:''},
+    {nome:'Fechamento Notas Diretoria MTR e BP',resp:'Adriana Urnau Cardoso',dest:'SCM Fiscal/Contábil',prazo:'31/03/2026',entrega:'31/03/2026',nota:''},
+    {nome:'Folha e Provisões (MTR)',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'31/03/2026',entrega:'31/03/2026',nota:'Entrega até 9h'},
+    {nome:'Folha e Provisões (BP)',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'31/03/2026',entrega:'31/03/2026',nota:'Entrega até 9h'},
+    {nome:'Emissão de NF de todas as Unidades',resp:'SCM Fiscal/Contábil',dest:'SCM Fiscal/Contábil',prazo:'31/03/2026',entrega:'31/03/2026',nota:''},
+    {nome:'Leitura Consumo de água Condomínio Prestige',resp:'Felipe Brito',dest:'Cristiano Almeida',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Business',resp:'SCM Fiscal/Contábil',dest:'',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Administradora',resp:'SCM Fiscal/Contábil',dest:'',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Central',resp:'SCM Fiscal/Contábil',dest:'',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade SCP Prestige',resp:'SCM Fiscal/Contábil',dest:'',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade SCP Tropical',resp:'SCM Fiscal/Contábil',dest:'',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Hid Germania',resp:'SCM Fiscal/Contábil',dest:'',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Entrega das conciliações bancárias e extratos - Business',resp:'July Ramos',dest:'SCM Fiscal/Contábil',prazo:'01/04/2026',entrega:'01/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - Administradora',resp:'July Ramos',dest:'SCM Fiscal/Contábil',prazo:'01/04/2026',entrega:'01/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - Central',resp:'July Ramos',dest:'SCM Fiscal/Contábil',prazo:'01/04/2026',entrega:'01/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - SCP Prestige',resp:'July Ramos',dest:'SCM Fiscal/Contábil',prazo:'01/04/2026',entrega:'01/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - SCP Tropical',resp:'July Ramos',dest:'SCM Fiscal/Contábil',prazo:'01/04/2026',entrega:'01/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - Hid. Germania',resp:'Contabilidade Estratégica',dest:'SCM Fiscal/Contábil',prazo:'01/04/2026',entrega:'01/04/2026',nota:'Entrega até 9h'},
+    {nome:'FISS - Business',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'CI Rateio Despesas Condomínio Tropical',resp:'Cristiano Almeida',dest:'SCM Fiscal/Contábil / Requestia',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Apuração Diferenças Entre Sistemas Socius x VHF',resp:'Cristiano Almeida',dest:'Anderson Cisz',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'RDCI Blue Park',resp:'Juliana dos Santos Rodrigues',dest:'Cristiano Almeida',prazo:'01/04/2026',entrega:'03/04/2026',nota:''},
+    {nome:'RDCI MTR',resp:'Juliana dos Santos Rodrigues',dest:'Cristiano Almeida',prazo:'01/04/2026',entrega:'03/04/2026',nota:''},
+    {nome:'Consumos Internos MCB',resp:'Valdineia da Silva Rodrigues Ferrao',dest:'Cristiano Almeida',prazo:'01/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Thermas',resp:'SCM Fiscal/Contábil',dest:'',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Blue Park',resp:'SCM Fiscal/Contábil',dest:'',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Prestige Inc',resp:'SCM Fiscal/Contábil',dest:'',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Cond Prestige',resp:'SCM Fiscal/Contábil',dest:'',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Bloqueio da Unidade Cond Mabu',resp:'SCM Fiscal/Contábil',dest:'',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Entrega das conciliações bancárias e extratos - Thermas',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - Blue Park',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - Prestige Inc',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - Cond Prestige',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 9h'},
+    {nome:'Entrega das conciliações bancárias e extratos - Cond Mabu',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 9h'},
+    {nome:'Extrato de Aplicações Finaneiras - Business',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 12h'},
+    {nome:'Extrato de Aplicações Finaneiras - Thermas',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 12h'},
+    {nome:'Extrato de Aplicações Finaneiras - Blue Park',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 12h'},
+    {nome:'Extrato de Aplicações Finaneiras - Prestige Inc',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 12h'},
+    {nome:'Extrato de Aplicações Finaneiras - Cond Prestige',resp:'Tesouraria',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'Entrega até 12h'},
+    {nome:'FISS - Thermas',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'FISS - Blue Park',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'FISS - Prestige Inc',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'FISS - Cond Prestige',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'FISS - Cond Mabu',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'02/04/2026',entrega:'02/04/2026',nota:'NÃO HOUVE ESSE MÊS'},
+    {nome:'Encerramento ISSQN - Business',resp:'Faturamento',dest:'Time Fiscal',prazo:'02/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'Encerramento ISSQN - SCP Tropical',resp:'',dest:'Time Fiscal',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Encerramento ISSQN - SCP Prestige',resp:'',dest:'Time Fiscal',prazo:'02/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Entrega Indicadores de Performance',resp:'Cezar Junior Almeida da Silva',dest:'Cristiano Almeida',prazo:'06/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'Entrega Vendas, Cancelamentos e Encaixe Prestige MVC',resp:'Rafael Ramirez',dest:'Cristiano Almeida',prazo:'06/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Entrega Número de Colaboradores por Unidade',resp:'Fernanda Lima Pegorini',dest:'Cristiano Almeida',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'Entrega de Recebíveis por Unidade',resp:'Rafael Ramirez',dest:'Cristiano Almeida',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'Entrega de Orçado x Realizado',resp:'Rafael Ramirez',dest:'Cristiano Almeida',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'CI Refeitório',resp:'Cristiano Almeida',dest:'Thiago Neres',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'Entrega de Resumo de Contas a Receber',resp:'Rafael Ramirez',dest:'Cristiano Almeida',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'Entrega de Vendas My Mabu+MVC Consolidado',resp:'Rafael Ramirez',dest:'Cristiano Almeida',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'Encerramento ISSQN - Thermas',resp:'Faturamento',dest:'Time Fiscal',prazo:'06/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'Encerramento ISSQN - Blue Park',resp:'Bilheteria/Faturamento',dest:'Time Fiscal',prazo:'06/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'CI Energia Elétrica Blue Park',resp:'Cristiano Almeida',dest:'SCM Fiscal/Contábil',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'CI Refeitório',resp:'Cristiano Almeida',dest:'SCM Fiscal/Contábil',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'CI Centro de Custo Conselho de Família',resp:'Cristiano Almeida',dest:'SCM Fiscal/Contábil',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'Envio de Alavancagem de Eventos ',resp:'Cristiano Almeida',dest:'Comercial',prazo:'06/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'Relatório Vacation - Thermas',resp:'Cobrança',dest:'SCM Fiscal/Contábil',prazo:'06/04/2026',entrega:'02/04/2026',nota:'Entrega até 12h'},
+    {nome:'CI Repasses Parceiros',resp:'Marcos Oliveira',dest:'SCM Fiscal/Contábil / Requestia',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'CI Reconhecimento Entretenimento Condomínios',resp:'Marcos Oliveira',dest:'SCM Fiscal/Contábil',prazo:'06/04/2026',entrega:'07/04/2026',nota:'Elvio assinou no dia 07/04 perto das 11h'},
+    {nome:'CI Reconhecimento de Pensão',resp:'Marcos Oliveira',dest:'SCM Fiscal/Contábil',prazo:'06/04/2026',entrega:'07/04/2026',nota:'Elvio assinou no dia 07/04 perto das 11h'},
+    {nome:'CI Repasses Prestige / MVC',resp:'Cristiano Almeida',dest:'SCM Fiscal/Contábil',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'CI Comissões de Agência',resp:'Marcos Oliveira',dest:'SCM Fiscal/Contábil',prazo:'06/04/2026',entrega:'07/04/2026',nota:'Elvio assinou no dia 07/04 perto das 11h'},
+    {nome:'CI Estacionamento Blue Park',resp:'Marcos Oliveira',dest:'SCM Fiscal/Contábil / Requestia',prazo:'06/04/2026',entrega:'07/04/2026',nota:'Elvio assinou no dia 07/04 perto das 11h'},
+    {nome:'Repasse Parceiros e Eventos - Blue Park',resp:'Marcos Oliveira',dest:'Elias Luan Probst Schlender',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'Preenchimento dos valores do Banco OPEA',resp:'Rafael Ramirez',dest:'Elias Luan Probst Schlender',prazo:'06/04/2026',entrega:'06/04/2026',nota:''},
+    {nome:'Entrega do Fechamento pela Contabilidade MTR',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'',entrega:'08/04/2026',nota:''},
+    {nome:'Entrega do Fechamento pela Contabilidade BP',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'Entrega do Fechamento pela Contabilidade MCB',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'Entrega do Fechamento pela Contabilidade ADM',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'Entrega do Fechamento pela Contabilidade CENTRAL',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'Entrega do Fechamento pela Contabilidade PRESTIGE',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'08/04/2026',nota:'20hs'},
+    {nome:'Entrega do Fechamento pela Contabilidade CONDOMÍNIO PRESTIGE',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'08/04/2026',nota:'20hs'},
+    {nome:'Entrega do Fechamento pela Contabilidade CONDOMÍNIO MABU',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'Entrega do Fechamento pela Contabilidade SCP PRESTIGE',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'Entrega do Fechamento pela Contabilidade SCP TROPICAL',resp:'Suelen Turmina ',dest:'Cristina Milek',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'Revisão da Cristina do fechamento Contabilidade MTR',resp:' Cristina Milek',dest:'Cristiano Almeida',prazo:'09/04/2026',entrega:'09/04/2026',nota:''},
+    {nome:'Revisão da Cristina do fechamento Contabilidade MCB',resp:' Cristina Milek',dest:'Cristiano Almeida',prazo:'09/04/2026',entrega:'09/04/2026',nota:''},
+    {nome:'Revisão da Cristina do fechamento Contabilidade ADM',resp:' Cristina Milek',dest:'Cristiano Almeida',prazo:'09/04/2026',entrega:'09/04/2026',nota:''},
+    {nome:'Revisão da Cristina do fechamento Contabilidade CENTRAL',resp:' Cristina Milek',dest:'Cristiano Almeida',prazo:'09/04/2026',entrega:'09/04/2026',nota:''},
+    {nome:'Revisão da Cristina do fechamento Contabilidade BP',resp:' Cristina Milek',dest:'Cristiano Almeida',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'Revisão da Cristina do fechamento Contabilidade PRESTIGE',resp:' Cristina Milek',dest:'Cristiano Almeida',prazo:'09/04/2026',entrega:'09/04/2026',nota:''},
+    {nome:'Revisão da Cristina do fechamento Contabilidade CONDOMINIOS',resp:' Cristina Milek',dest:'Cristiano Almeida',prazo:'09/04/2026',entrega:'09/04/2026',nota:''},
+    {nome:'ICMS FECOP  - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS 3°  - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS FATURAMENTO  - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS RPA  - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ICMS  - Business',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ICMS FECOP - Business',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS RPA - Business',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS 3° - Business',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS FATURAMENTO - Business',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS - Mabu Administradora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ICMS - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ICMS FECOP - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS TERCEIROS - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS FATURAMENTO - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS RPA  - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS  - SCP Prestige',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS 3° - Cond. Prestige',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'ISS RPA - Cond. Prestige',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:''},
+    {nome:'Envio da Prévia da Apresentação do CAD aos Diretores e CEOs',resp:'Cristiano Almeida',dest:'Diretoria',prazo:'14/04/2026',entrega:'',nota:'Entrega até 12h'},
+    {nome:'Revisão e Solicitação de Ajustes na Apresentação',resp:'Diretores e CEOs',dest:'Cristiano Almeida',prazo:'14/04/2026',entrega:'',nota:'Entrega até 17h'},
+    {nome:'ENVIO DA APRESENTAÇÃO AO CAD',resp:'Cristiano Almeida',dest:'Elenice Tibes',prazo:'14/04/2026',entrega:'',nota:''},
+    {nome:'CAD - MENSAL',resp:'Diretoria/Conselho (CAD)',dest:'',prazo:'20/04/2026',entrega:'',nota:''},
+    {nome:'FGTS - Hotelaria',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'IRRF - Hotelaria',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'INSS - Hotelaria',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Adto Salário - Hotelaria',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Salário - Hotelaria',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'FGTS - Blue Park',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'IRRF - Blue Park',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'INSS - Blue Park',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Adto Salário - Blue Park',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Salário - Blue Park',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'FGTS - Condomínio Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'IRRF - Condomínio Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'INSS - Condomínio Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Adto Salário - Condomínio Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Salário - Condomínio Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'FGTS - Condomínio Mabu',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'IRRF - Condomínio Mabu',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'INSS - Condomínio Mabu',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Adto Salário - Condomínio Mabu',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Salário - Condomínio Mabu',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'FGTS - Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'IRRF - Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'INSS - Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Adto Salário - Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Salário - Prestige',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'FGTS - Hidrelétrica Germânia ',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'IRRF - Hidrelétrica Germânia ',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'INSS - Hidrelétrica Germânia ',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Adto Salário - Hidrelétrica Germânia ',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'Salário - Hidrelétrica Germânia ',resp:'Fernanda Lima Pegorini',dest:'July Ramos',prazo:'06/04/2026',entrega:'06/04/2026',nota:'PRÉVIA - DEFINITIVO DIA 10'},
+    {nome:'ISS 3° - Cond. Mabu',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'08/04/2026',entrega:'08/04/2026',nota:'Não houve valores'},
+    {nome:'CSLL 3° TRIMESTRE - SCP Prestige',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'09/04/2026',nota:'Pagamento Trimestral'},
+    {nome:'IRPJ 3° TRIMESTE - SCP Prestige',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'09/04/2026',nota:'Pagamento Trimestral'},
+    {nome:'CSLL 3° TRIMESTRE - SCP Tropical',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'09/04/2026',nota:'Pagamento Trimestral'},
+    {nome:'IRPJ 3° TRIMESTRE - SCP Tropical',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'09/04/2026',nota:'Pagamento Trimestral'},
+    {nome:'HIstórico de Aplicação Condomínios',resp:'Thiago Neres',dest:'Cristiano Almeida',prazo:'09/04/2026',entrega:'09/04/2026',nota:''},
+    {nome:'Relatório DCTFWEB - Blue Park',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'09/04/2026',entrega:'',nota:''},
+    {nome:'Relatório DCTFWEB - Germania',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'09/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'Relatório DCTFWEB - Prestige Inc',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'09/04/2026',entrega:'02/04/2026',nota:''},
+    {nome:'Relatório DCTFWEB - Cond Prestige',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'09/04/2026',entrega:'07/04/2026',nota:''},
+    {nome:'Relatório DCTFWEB - Cond Mabu',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'09/04/2026',entrega:'01/04/2026',nota:''},
+    {nome:'PIS CUMULATIVO - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS NÃO CUMULATIVO - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'COFINS CUMULATIVO - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'COFINS NÃO CUMULATIVO - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'COFINS CUMULATIVO - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS CUMULATIVO - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'COFINS NÃO CUMULATIVA - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS NÃO CUMULATIVO - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS RECEITA FINANCEIRA - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS RECEITA OPERACIONAL  - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'COFINS RECEITA FINANCEIRA - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'COFINS RECEITA OPERACIONAL - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'COFINS - SCP Prestige',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS - SCP Prestige',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'ISS - SCP Tropical',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'COFINS - SCP Tropical',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS - SCP Tropical',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'09/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'Entrega da Segmentação',resp:'Denise Burmann',dest:'Cristiano Almeida',prazo:'11/04/2026',entrega:'',nota:''},
+    {nome:'Entrega dos Dados sobre vendas de Passaportes',resp:'Tarcio Ferreira',dest:'Cristiano Almeida',prazo:'10/04/2026',entrega:'',nota:''},
+    {nome:'Entrega Do Forecast das Unidades MTR e MCB',resp:'Diego Garcia',dest:'Cristiano Almeida',prazo:'10/04/2026',entrega:'',nota:'Entrega até 12h'},
+    {nome:'Relatório DCTFWEB - Mabu Consolidado',resp:'DHO',dest:'SCM Fiscal/Contábil',prazo:'10/04/2026',entrega:'',nota:''},
+    {nome:'Envio da Análise Crítica para os Diretores das Unidades',resp:'Cristiano Almeida',dest:'Diretores das Unidades',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'Envio do DFC',resp:'Elias Luan Probst Schlender',dest:'Cristiano Almeida',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'Entrega das Análises das Despesas',resp:'Elvio Andrade',dest:'Cristiano Almeida',prazo:'11/04/2026',entrega:'',nota:''},
+    {nome:'Entrega das Análises das Despesas',resp:'Rodrigo Miluzzi',dest:'Cristiano Almeida',prazo:'11/04/2026',entrega:'',nota:''},
+    {nome:'Entrega das Análises das Despesas',resp:'Bruna Beggiora Coelho',dest:'Cristiano Almeida',prazo:'11/04/2026',entrega:'',nota:''},
+    {nome:'Entrega dos Fatos Relevantes do Mês',resp:'Elvio Andrade',dest:'Cristiano Almeida',prazo:'11/04/2026',entrega:'',nota:''},
+    {nome:'Entrega dos Fatos Relevantes do Mês',resp:'Rodrigo Miluzzi',dest:'Cristiano Almeida',prazo:'11/04/2026',entrega:'',nota:''},
+    {nome:'Entrega dos Fatos Relevantes do Mês',resp:'Fernando Deonisio de Val Pysklyvicz',dest:'Cristiano Almeida',prazo:'11/04/2026',entrega:'',nota:''},
+    {nome:'CSLL - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'IRPJ - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'IPTU JAMRA - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'IPTU  - Parcelamento - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'ISS - Parcelamento - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS PARCELAMENTO 2021/1 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS PARCELAMENTO 01/2021 - 02/2021 - 03/2021 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS PARCELAMENTO 07/2021 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'IRRF PARCELAMENTO 10980 -737.116/2021-06 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IRRF/IOF/CSRF 2021-27 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IRRF/IOF/CSRF 2021-10 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IRRF/IOF/CSRF 5769494 - DÍVIDA ATIVA - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS PARCELAMENTO 04/2021 - 05/2021 - 06/2021 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PARCELAMENTO AUTO DE INFRAÇÃO CLT N°14016067 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PARCELAMENTO AUTO DE INFRAÇÃO CLT N°14016189 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PARCELAMENTO AUTO DE INFRAÇÃO CLT N°14016201 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PARCELAMENTO AUTO DE INFRAÇÃO CLT N°15508963 - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'ISS 34273 - Business',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'IPTU 120410220004 - Business',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'ISS 34828 - Business',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'IRPJ - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'CSLL - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'ISS - Parcelamento - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IRRF 10935-403427 - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IRRF 4656964 - DÍVIDA ATIVA - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS TAP 638964237 - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS TAP 639713513 - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS TAP 642052549 - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'IPTU  - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IRRF/IOF/CSRF 10935-403426/2021-67 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IRRF/IOF/CSRF 10935-403521/2021-61 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IOF/CSRF 10935-403577/2021-15 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS/IRRF/IOF/CSRF 403925/2022-35 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS TAP 07.03.22053.0724186-3 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS 817082123507604 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'PIS/COFINS 291082321600756 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'Envio do Fluxo de Março Atualizado',resp:'July Ramos',dest:'July Ramos',prazo:'20/04/2026',entrega:'',nota:''},
+    {nome:'PIS/COFISN/IRRF/IOF TAP 4855891 - DÍVIDA ATIVA - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS TAP 640156541 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS TAP 642158401 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'INSS TAP 5030541 - Prestige Incorporadora',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'CFEM - Thermas',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'20/04/2026',entrega:'',nota:''},
+    {nome:'CFEM - Blue Park',resp:'SCM Fiscal/Contábil',dest:'July Ramos',prazo:'20/04/2026',entrega:'',nota:''},
+    {nome:'Envio dos valores do CRI e Recebimentos em ₲ e $',resp:'Emilaine de Almeida Emidio',dest:'Elias Luan Probst Schlender',prazo:'10/04/2026',entrega:'10/04/2026',nota:''},
+    {nome:'Conferência dos Totais Contábeis das Unidades',resp:'Cristiano Almeida',dest:'Marcelo Correia Prigol',prazo:'13/04/2026',entrega:'',nota:''},
+    {nome:'Revisão das Análises pelas Unidades e solicitação de Ajustes',resp:'Diretores das Unidades',dest:'Cristiano Almeida',prazo:'13/04/2026',entrega:'',nota:''},
+  ];
+  var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var shT = ss.getSheetByName('Todos') || ss.getSheets()[0];
+  var shM = ss.getSheetByName('Março') || ss.getSheetByName('Marco');
+  if (!shM) { shM = ss.insertSheet('Março'); }
+
+  // Le Todos de uma vez (1 API call)
+  var dT  = shT.getDataRange().getValues();
+  var hT  = dT[0].map(function(h){ return String(h).trim().toLowerCase(); });
+  function ci(a){ for(var i=0;i<a.length;i++){var x=hT.indexOf(a[i].toLowerCase());if(x>=0)return x;} return -1; }
+  var cId=ci(['id']),    cNm=ci(['nome','name']),  cNt=ci(['nota','note']);
+  var cRs=ci(['responsavel','resp']), cDs=ci(['destinatario','dest']);
+  var cEm=ci(['email','e-mail']),    cPr=ci(['prazo']),      cEn=ci(['entrega']);
+  var cSt=ci(['status']), cMs=ci(['mes','month']), cAt=ci(['atualizado em']);
+  if(cAt<0) cAt=SHEET_COLS.length-1;
+  var ncols = dT[0].length;
+
+  // Mapa nome|resp -> indice em dT (0-based)
+  var nmap={}, maxId=0;
+  for(var r=1; r<dT.length; r++){
+    var key=String(dT[r][cNm]||'')+'|'+String(dT[r][cRs]||'');
+    nmap[key]=r;
+    var id=Number(dT[r][cId])||0; if(id>maxId) maxId=id;
+  }
+
+  // Atualiza em memoria, coleta linhas para Marco
+  var now=new Date().toISOString(), marcoRows=[], added=0, updated=0;
+  TASKS.forEach(function(t){
+    var key=t.nome+'|'+t.resp, ri=nmap[key], nr;
+    if(ri !== undefined){
+      dT[ri][cPr]=t.prazo; dT[ri][cEn]=t.entrega;
+      dT[ri][cNt]=t.nota;  dT[ri][cAt]=now;
+      nr=dT[ri]; updated++;
+    } else {
+      maxId++;
+      nr=new Array(ncols).fill('');
+      nr[cId]=maxId; nr[cNm]=t.nome; nr[cNt]=t.nota;
+      nr[cRs]=t.resp||'—'; nr[cDs]=t.dest||'—'; nr[cEm]='';
+      nr[cPr]=t.prazo; nr[cEn]=t.entrega; nr[cSt]='';
+      nr[cMs]='mar'; nr[cAt]=now;
+      dT.push(nr); nmap[key]=dT.length-1; added++;
+    }
+    marcoRows.push(nr.slice());
+  });
+
+  // Grava Todos em lote (1 API call)
+  shT.getRange(1,1,dT.length,ncols).setValues(dT);
+  shT.getRange(2,cPr+1,dT.length-1,1).setNumberFormat('@');
+  shT.getRange(2,cEn+1,dT.length-1,1).setNumberFormat('@');
+
+  // Grava Marco em lote: limpa e reescreve (2 API calls)
+  shM.clearContents();
+  var mData=[SHEET_COLS].concat(marcoRows);
+  shM.getRange(1,1,mData.length,SHEET_COLS.length).setValues(mData);
+  shM.getRange(2,cPr+1,marcoRows.length,1).setNumberFormat('@');
+  shM.getRange(2,cEn+1,marcoRows.length,1).setNumberFormat('@');
+
+  invalidateTasksCache();
+  var msg = 'importMarch2026: '+updated+' atualizadas, '+added+' novas.';
+  Logger.log(msg);
+  try { SpreadsheetApp.getUi().alert('Concluido! '+msg); } catch(e) {}
 }
