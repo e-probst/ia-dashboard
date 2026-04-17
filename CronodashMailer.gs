@@ -144,7 +144,10 @@ function handleViewStatus(params) {
   var props = PropertiesService.getScriptProperties();
   var already = id ? !!props.getProperty('confirm_' + id) : false;
 
-  var allRespTasks = getRespTasksForPanel(resp, id, props);
+  // Fix: passa '' como currentId — viewStatus é só leitura, não há tarefa "recém confirmada".
+  // Isso: (1) permite uso do cache de 2 min, (2) mostra tarefas confirmadas no painel,
+  // (3) evita que a primeira tarefa do e-mail apareça como "atual" indevidamente.
+  var allRespTasks = getRespTasksForPanel(resp, '', props);
 
   return HtmlService.createHtmlOutput(buildConfirmationPage(name, params.prazo||'', already, resp, allRespTasks, true))
     .setTitle('Minhas Entregas · Cronograma Mensal');
@@ -153,9 +156,12 @@ function handleViewStatus(params) {
 // Busca tarefas do responsável para "Minhas Entregas".
 // Prioridade: usa lista armazenada do último disparo de e-mail (resp_sent_*).
 // Fallback: janela de 30d no Sheets (se nunca houve disparo).
+// currentId vazio ('') → modo status (viewOnly): mostra pendentes + confirmadas.
+// currentId preenchido → modo confirmação: mostra só pendentes + a tarefa recém confirmada.
 function getRespTasksForPanel(resp, currentId, props) {
   var result = [];
   if (!resp || !SPREADSHEET_ID) return result;
+  var viewOnly = !currentId; // sem currentId = modo "Ver minhas entregas" (leitura pura)
 
   var today = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
   var tParts = today.split('/');
@@ -264,10 +270,13 @@ function getRespTasksForPanel(resp, currentId, props) {
         } catch(e2) {}
       }
 
-      // Exclui tarefas já entregues EXCETO a tarefa atual (que acabou de ser confirmada)
-      // currentId vazio (ex: handleViewStatus sem id) → nenhuma tarefa é "atual"
+      // isCurrent: tarefa recém confirmada — exibida com destaque no modo confirmação
       var isCurrent = !!(currentId && rowId && rowId === String(currentId));
-      if (confirmed && !isCurrent) continue;
+
+      // Fix: em modo viewOnly (currentId=''), mostra TODAS as tarefas in-scope (pendentes + confirmadas).
+      // Em modo confirmação (currentId preenchido), exclui confirmadas exceto a recém confirmada
+      // para dar feedback limpo de "o que ainda falta entregar".
+      if (!viewOnly && confirmed && !isCurrent) continue;
       if (!include && !isCurrent) continue;
 
       result.push({
@@ -513,10 +522,14 @@ function buildConfirmationPage(name, prazo, alreadyDone, resp, allRespTasks, vie
   var hasPanel = tableRows !== '';
   var summaryHtml = '';
   if (hasPanel) {
+    // Fix: título reflete o modo real do painel
+    var panelTitle = viewOnly
+      ? '📋 Suas tarefas — <strong style="color:#0a1e45">' + esc(resp) + '</strong>'
+      : '📋 Tarefas pendentes — <strong style="color:#0a1e45">' + esc(resp) + '</strong>';
     summaryHtml =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
       + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:#8096b8">'
-      +   '📋 Suas tarefas de hoje e em atraso — <strong style="color:#0a1e45">' + esc(resp) + '</strong>'
+      +   panelTitle
       + '</div>'
       + '<div style="font-size:11px;color:#8096b8">'
       +   '<span style="color:#1a7a4a;font-weight:700">' + totalConf + ' entregue' + (totalConf !== 1 ? 's' : '') + '</span>'
@@ -940,7 +953,9 @@ function dailyEmailJob() {
     return;
   }
   try {
-    var props = PropertiesService.getScriptProperties();
+    var props    = PropertiesService.getScriptProperties();
+    // Fix: pré-carrega TODAS as propriedades uma única vez (evita N round-trips ao PropertiesService no loop)
+    var allProps = props.getProperties();
     var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
     var sheet = ss.getSheetByName('Todos') || ss.getSheets()[0];
     var data  = sheet.getDataRange().getValues();
@@ -983,8 +998,9 @@ function dailyEmailJob() {
       var delivered = (status==='ENTREGUE'||status==='ENTREGA ANTECIPADA'||status==='ENTREGUE COM ATRASO');
       // Verifica também confirmações via link de e-mail (PropertiesService) que ainda não
       // chegaram ao Sheets (ex: confirmDeliveryInSheet falhou ou sync ainda pendente)
+      // Fix: usa allProps pré-carregado (evita N round-trips individuais ao PropertiesService)
       if (!delivered && rowId > 0) {
-        if (props.getProperty('confirm_' + rowId)) delivered = true;
+        if (allProps['confirm_' + rowId]) delivered = true;
       }
       if (delivered) continue;
       var include = false;
@@ -1233,11 +1249,13 @@ function buildEmailHtml(tasks, titulo, showConfirm, compact) {
         + '<th style="padding:8px 10px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:15%">Destinatário</th>'
         + '<th style="padding:8px 10px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:12%">Prazo</th>'
         + '<th style="padding:8px 10px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:20%">Status</th>'
+      // Fix: larguras somam 100% com ou sem coluna Ação (showConfirm)
+      // Com Ação: 35+14+14+10+13+14=100%; Sem Ação: 35+14+14+10+27=100%
       : '<th style="padding:10px 12px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:35%">Tarefa</th>'
         + '<th style="padding:10px 12px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:14%">Responsável</th>'
         + '<th style="padding:10px 12px;text-align:left;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:14%">Destinatário</th>'
         + '<th style="padding:10px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:10%">Prazo</th>'
-        + '<th style="padding:10px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:13%">Status</th>'
+        + '<th style="padding:10px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:' + (showConfirm ? '13' : '27') + '%">Status</th>'
         + (showConfirm ? '<th style="padding:10px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.9);font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:14%">Ação</th>' : '')
     )
     + '</tr>'

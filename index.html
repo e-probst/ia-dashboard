@@ -773,6 +773,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="tabDash" onclick="switchTab('dashboard')">📊 Dashboard</button>
     <button class="nav-tab" id="tabAtiv" onclick="switchTab('atividades')">📋 Atividades</button>
+    <button class="nav-tab" id="tabReport" onclick="switchTab('report')">📄 Relatórios</button>
     <button class="btn-logout" id="btnLogout" onclick="logout()" title="Sair da área restrita">🔒 Sair</button>
   </div>
   <div class="header-right">
@@ -935,7 +936,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Atualizar
       </button>
-      <button class="btn-download-img" onclick="downloadReportImage()">
+      <button class="btn-download-img" id="btnDownloadReport" onclick="downloadReportImage()">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Baixar imagem
       </button>
@@ -2185,12 +2186,13 @@ function _applyStoredOverrides() {
       if (!saved || trashedIds.has(String(t.id)) || t._edited) return; // já tem edição local, não sobrescreve
       const originalEmail = t.email;
       Object.assign(t, {
-        name:  saved.name  || t.name,
-        note:  saved.note  != null ? saved.note  : t.note,
-        email: saved.email != null ? saved.email : t.email,
-        resp:  saved.resp  || t.resp,
-        dest:  saved.dest  || t.dest,
-        month: saved.month || t.month,
+        name:   saved.name   || t.name,
+        note:   saved.note   != null ? saved.note   : t.note,
+        email:  saved.email  != null ? saved.email  : t.email,
+        resp:   saved.resp   || t.resp,
+        dest:   saved.dest   || t.dest,
+        month:  saved.month  || t.month,
+        status: saved.status || t.status, // Fix: restaura status salvo (ex: manual sem datas)
         _edited: true,
         _dateEdited: !!saved._dateEdited,
       });
@@ -2214,16 +2216,20 @@ const GAS_KEY = 'mabu_gas_config';
 const EMAIL_OVERRIDE_KEY = 'mabu_email_overrides'; // IDs de tarefas onde usuário editou após confirmação por e-mail
 function _loadEmailOverrides(){ try{ return new Set(JSON.parse(localStorage.getItem(EMAIL_OVERRIDE_KEY)||'[]')); }catch(e){ return new Set(); } }
 function _saveEmailOverride(taskId){ try{ const s=_loadEmailOverrides(); s.add(String(taskId)); localStorage.setItem(EMAIL_OVERRIDE_KEY,JSON.stringify([...s])); }catch(e){} }
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec';
+const DEFAULT_GAS_URL    = 'https://script.google.com/macros/s/AKfycbwK8FMgwRXkF-Z6krN12yHKgMJmDNxsgVBZoka4PJgSlNYx4f29wxs3XTKtW35B27Tc/exec';
+const DEFAULT_GAS_SECRET = 'e419d4cc9b6a4d2db975393999fd363d';
 const DEFAULT_EMAIL = 'e.probst@mymabu.com.br'; // E-mail padrão para tarefas sem e-mail cadastrado
 
 function loadGasConfig(){
   try {
     const raw = localStorage.getItem(GAS_KEY);
-    // Nunca configurado (raw===null) → usa URL padrão para funcionar online sem configuração manual
-    if(raw === null) return { url: DEFAULT_GAS_URL };
-    return JSON.parse(raw)||{};
-  } catch(e){ return { url: DEFAULT_GAS_URL }; }
+    // Nunca configurado (raw===null) → usa URL + secret padrão para funcionar sem configuração manual
+    if(raw === null) return { url: DEFAULT_GAS_URL, secret: DEFAULT_GAS_SECRET };
+    const cfg = JSON.parse(raw) || {};
+    // Se o secret estiver vazio (configurado antes dessa atualização), usa o padrão
+    if(!cfg.secret) cfg.secret = DEFAULT_GAS_SECRET;
+    return cfg;
+  } catch(e){ return { url: DEFAULT_GAS_URL, secret: DEFAULT_GAS_SECRET }; }
 }
 
 function saveGasConfig(){
@@ -2554,6 +2560,9 @@ async function fetchTasksFromGas(){
       updateNotifyBadge();
       markReportStale();
       console.log('[GAS] fetchTasksFromGas: ' + updated + ' atualizadas, ' + added + ' novas');
+      // Fix: re-aplica confirmações de e-mail caso fetchConfirmations() rodou no init()
+      // antes de allTasks ser preenchido (race condition na primeira carga sem dados locais).
+      if(added > 0) fetchConfirmations();
     }
   }catch(e){
     _hideDataLoading();
@@ -2996,18 +3005,23 @@ function _switchTabInternal(tab) {
   document.getElementById('viewShared').style.display      = shared             ? 'block' : 'none';
   document.getElementById('viewDashboard').style.display   = tab === 'dashboard' ? 'block' : 'none';
   document.getElementById('viewAtividades').style.display  = tab === 'atividades'? 'block' : 'none';
+  document.getElementById('viewReport').style.display      = tab === 'report'    ? 'block' : 'none';
   document.getElementById('tabDash').classList.toggle('active', tab === 'dashboard');
   document.getElementById('tabAtiv').classList.toggle('active', tab === 'atividades');
+  document.getElementById('tabReport').classList.toggle('active', tab === 'report');
   document.getElementById('btnNew').style.display    = tab === 'atividades' ? 'inline-flex' : 'none';
   document.getElementById('btnLogout').style.display = tab === 'atividades' ? 'flex' : 'none';
   const titles = {
     dashboard:  ['Dashboard de Cronograma',  'Visão geral de KPIs, gráficos e alertas do fechamento contábil'],
     atividades: ['Lista de Atividades',       'Navegue por mês, filtre e edite as tarefas do fechamento contábil'],
+    report:     ['Relatório de Pendências',   'Tarefas atrasadas e com prazo hoje em todos os meses'],
   };
   if(titles[tab]){
     document.getElementById('pageTitle').textContent    = titles[tab][0];
     document.getElementById('pageSubtitle').textContent = titles[tab][1];
   }
+  // Renderiza o relatório ao abrir a aba se os dados estiverem desatualizados
+  if(tab === 'report' && _reportStale) renderReport();
 }
 
 function buildExportCard(){
@@ -3320,7 +3334,7 @@ function renderReportSection(containerId, tasks, badgeType) {
 }
 
 function downloadReportImage() {
-  const btn = document.getElementById('btnDownloadImg');
+  const btn = document.getElementById('btnDownloadReport'); // Fix: usa id correto (não o btn do Dashboard)
   btn.disabled = true;
   btn.innerHTML = '⏳ Gerando imagem…';
 
@@ -3342,7 +3356,7 @@ function downloadReportImage() {
 
 function _doDownload() {
   const card = document.getElementById('reportCard');
-  const btn  = document.getElementById('btnDownloadImg');
+  const btn  = document.getElementById('btnDownloadReport'); // Fix: usa id correto (não o btn do Dashboard)
 
   // Temporarily constrain width to 640px (email-friendly) for the screenshot
   const origStyle = card.style.cssText;
