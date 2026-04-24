@@ -1244,6 +1244,7 @@ function init(){
 // ── Timeline ──
 function renderTimeline(){
   const track = document.getElementById('timelineTrack');
+  if(!track) return;
   const monthsHtml = MONTHS.map(m => {
     const mTasks = allTasks.filter(t => t.month === m.key);
     const done = mTasks.filter(t => t.status==='ENTREGUE'||t.status==='ENTREGA ANTECIPADA'||t.status==='ENTREGUE COM ATRASO').length;
@@ -1716,6 +1717,8 @@ function saveTask(){
           deleteTaskFromGas(x.id,x.month);
           const idx=allTasks.findIndex(a=>a.id===x.id);
           if(idx>-1)allTasks.splice(idx,1);
+          const ti=tasks.findIndex(a=>a.id===x.id);
+          if(ti>-1)tasks.splice(ti,1);
         });
     }
     showToast('✅ Tarefa atualizada!','green');
@@ -1975,6 +1978,7 @@ function renderPendenciasBlock(){
 
 // Abre modal de visualização (somente leitura) ao clicar em item no Dashboard
 function goToTask(month, id){
+  if(!allTasks.find(x=>String(x.id)===String(id))){showToast('⚠️ Tarefa não encontrada','');return;}
   openModalView(id);
 }
 
