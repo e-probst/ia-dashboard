@@ -951,6 +951,12 @@ function createDailyTrigger() {
 function dailyEmailJob() {
   if (!SPREADSHEET_ID) {
     Logger.log('dailyEmailJob: SPREADSHEET_ID não configurado');
+    if (ADMIN_EMAIL) {
+      try { MailApp.sendEmail({ to: ADMIN_EMAIL, name: EMAIL_FROM_NAME,
+        subject: '[Cronograma Mensal] ⚠️ Job diário não executou — SPREADSHEET_ID ausente',
+        htmlBody: '<p>O job diário de e-mails não foi executado porque o <strong>SPREADSHEET_ID</strong> não está configurado.</p><p>Execute <code>setupConfig()</code> no editor do Apps Script.</p>' });
+      } catch(e2) { Logger.log('dailyEmailJob: falha ao notificar admin: ' + e2.message); }
+    }
     return;
   }
   try {
@@ -1085,22 +1091,28 @@ var MONTH_SHEET = {
   'set':'Setembro','out':'Outubro','nov':'Novembro','dez':'Dezembro'
 };
 
-// Upsert de uma linha em uma aba pelo ID (col 0)
-// Aplica formato @text nas colunas de data (7=Prazo, 8=Entrega) ANTES de escrever
-// para impedir que o Sheets converta automaticamente DD/MM/YYYY para Date object
-function upsertRow(sheet, id, row) {
-  var data  = sheet.getDataRange().getValues();
+// Upsert de uma linha em uma aba pelo ID (col 0) usando dados pré-lidos (evita N leituras)
+// data: array de linhas já lido; sheet: objeto Sheet; row: nova linha a gravar
+// Retorna true se linha existente foi atualizada, false se nova linha foi inserida
+function upsertRowWithData(sheet, id, row, data) {
   for (var r = 1; r < data.length; r++) {
     if (String(data[r][0]) === String(id)) {
       sheet.getRange(r + 1, 7, 1, 2).setNumberFormat('@');
       sheet.getRange(r + 1, 1, 1, SHEET_COLS.length).setValues([row]);
-      return;
+      data[r] = row; // atualiza cache local
+      return true;
     }
   }
-  // Nova linha: pré-formata antes de appendRow
   var newRow = sheet.getLastRow() + 1;
   sheet.getRange(newRow, 7, 1, 2).setNumberFormat('@');
   sheet.getRange(newRow, 1, 1, SHEET_COLS.length).setValues([row]);
+  data.push(row); // registra nova linha no cache local
+  return false;
+}
+
+// Mantida para compatibilidade com chamadas individuais (ex: confirmDeliveryInSheet)
+function upsertRow(sheet, id, row) {
+  upsertRowWithData(sheet, id, row, sheet.getDataRange().getValues());
 }
 
 // Remove linha de uma aba pelo ID (col 0)
@@ -1133,24 +1145,28 @@ function logTasksToSheet(tasks) {
   var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
   var now = new Date().toISOString();
 
-  // Prepara abas necessárias UMA vez antes de iterar
   var sheetTodos = ensureSheet(ss, 'Todos');
-  var mesSheets  = {};
+  var todosData  = sheetTodos.getDataRange().getValues(); // lê UMA vez
 
+  var mesSheets = {}, mesData = {};
+  // Pré-carrega abas de meses necessários UMA vez cada
   tasks.forEach(function(t) {
     var mesLabel = t.month ? (MONTH_SHEET[t.month.toLowerCase()] || '') : '';
     if (mesLabel && !mesSheets[mesLabel]) {
       mesSheets[mesLabel] = ensureSheet(ss, mesLabel);
+      mesData[mesLabel]   = mesSheets[mesLabel].getDataRange().getValues();
     }
+  });
 
+  tasks.forEach(function(t) {
+    var mesLabel = t.month ? (MONTH_SHEET[t.month.toLowerCase()] || '') : '';
     var row = [
       t.id, t.name||'', t.note||'', t.resp||'—', t.dest||'—',
       t.email||'', t.prazo||'—', t.entrega||'—', t.status||'NO PRAZO', t.month||'', now
     ];
-
-    upsertRow(sheetTodos, t.id, row);
+    upsertRowWithData(sheetTodos, t.id, row, todosData);
     if (mesLabel && mesSheets[mesLabel]) {
-      upsertRow(mesSheets[mesLabel], t.id, row);
+      upsertRowWithData(mesSheets[mesLabel], t.id, row, mesData[mesLabel]);
     }
   });
 }

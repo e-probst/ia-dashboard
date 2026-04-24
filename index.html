@@ -2564,9 +2564,10 @@ async function fetchTasksFromGas(){
       updateNotifyBadge();
       markReportStale();
       console.log('[GAS] fetchTasksFromGas: ' + updated + ' atualizadas, ' + added + ' novas');
-      // Fix: re-aplica confirmações de e-mail caso fetchConfirmations() rodou no init()
-      // antes de allTasks ser preenchido (race condition na primeira carga sem dados locais).
-      if(added > 0) fetchConfirmations();
+      // Re-aplica confirmações após qualquer mudança nos dados: garante que confirmações
+      // de e-mail recebidas enquanto o dashboard estava fechado sejam sempre aplicadas,
+      // independente de ter adicionado ou apenas atualizado tarefas.
+      fetchConfirmations();
     }
   }catch(e){
     _hideDataLoading();
