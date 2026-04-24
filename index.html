@@ -2810,6 +2810,7 @@ function markTaskDelivered(gIdx, tIdx){
   renderNotifyList();
   renderTimeline();
   applyFilters();
+  updateNotifyBadge();
   markReportStale();
   showToast('✅ Entrega registrada — ' + item.task.name.slice(0,40), 'green');
 }
