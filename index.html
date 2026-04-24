@@ -1337,7 +1337,7 @@ function bLabel(s){
 function esc(s){ return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // ── Filters ──
-function applyFilters(){
+function applyFilters(keepPage){
   const q = document.getElementById('searchInput').value.toLowerCase();
   const st = document.getElementById('filterStatus').value;
   const re = document.getElementById('filterResp').value;
@@ -1350,7 +1350,8 @@ function applyFilters(){
     if(sortKey==='resp')return(a.resp||'').localeCompare(b.resp||'','pt-BR')*sortDir;
     return 0;
   });
-  page=1; render();
+  if(!keepPage){ page=1; } else { const maxPage=Math.ceil(filtered.length/PER)||1; if(page>maxPage) page=maxPage; }
+  render();
 }
 function sortBy(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1;}document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sorted'));const el=document.getElementById('th-'+k);if(el)el.classList.add('sorted');applyFilters();}
 function clearFilters(){document.getElementById('searchInput').value='';document.getElementById('filterStatus').value='';document.getElementById('filterResp').value='';applyFilters();}
@@ -2555,7 +2556,7 @@ async function fetchTasksFromGas(){
       sel.innerHTML = '<option value="">Todos os responsáveis</option>';
       [...respSet].sort().forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); });
       if(curVal) sel.value = curVal; // preserva seleção atual se ainda existir
-      applyFilters();
+      applyFilters(true); // keepPage=true: sync automático não reseta a página do usuário
       updateNotifyBadge();
       markReportStale();
       console.log('[GAS] fetchTasksFromGas: ' + updated + ' atualizadas, ' + added + ' novas');
@@ -2638,7 +2639,7 @@ async function fetchConfirmations(){
       saveOverrides();
       recalcAllStatuses();
       renderTimeline();
-      applyFilters();
+      applyFilters(true); // keepPage=true: confirmação automática não reseta a página do usuário
       updateNotifyBadge();
       markReportStale();
       showToast(`✅ ${applied} entrega${applied!==1?'s':''} confirmada${applied!==1?'s':''} por e-mail!`, 'green');
