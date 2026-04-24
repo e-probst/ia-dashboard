@@ -1813,7 +1813,7 @@ function restoreTask(i){
   const[t]=trash.splice(i,1);
   delete t._deletedAt;
   t._edited=true; t._dateEdited=true; // garante que datas sejam preservadas ao restaurar
-  if(!t.month||!MONTHS.find(m=>m.key===t.month)) t.month=activeMth; // corrige mês inválido
+  if(!t.month||!MONTHS.find(m=>m.key===t.month)) t.month=(activeMth==='geral'?_curMth:activeMth); // corrige mês inválido; evita 'geral' como mês
   allTasks.push(t);
   if(t.month===activeMth)tasks.push(t);
   if(t.id>=nextId) nextId=t.id+1; // evita colisão de IDs em novas tarefas
@@ -2772,7 +2772,7 @@ function renderNotifyList(){
         </div>
         ${noEmail
           ? `<button class="btn-send-one" onclick="closeNotifyModal();openModal(${t.id})" title="Clique para adicionar e-mail à tarefa" style="background:#fffbeb;border-color:#f59e0b;color:#92400e;">✏ Sem e-mail</button>`
-          : `<button class="btn-send-one" id="bso-${gIdx}-${tIdx}" onclick="fireOneTask(${gIdx},${tIdx})" title="Enviar e-mail para esta tarefa" ${group.status==='ok'?'disabled':''}>📧 Enviar</button>`
+          : `<button class="btn-send-one${ti.delivered?' sent':''}" id="bso-${gIdx}-${tIdx}" onclick="fireOneTask(${gIdx},${tIdx})" title="Enviar e-mail para esta tarefa" ${group.status==='ok'||ti.delivered?'disabled':''}>📧 ${ti.delivered?'Enviado ✓':'Enviar'}</button>`
         }
       </div>`;
     }).join('');
@@ -2840,7 +2840,7 @@ async function fireOneTask(gIdx, tIdx){
       if(check.lastSend && check.lastSend.ts > sentAt) ok = check.lastSend.ok !== false;
     }catch(e2){}
     item.delivered = true;
-    if(btn){ btn.className='btn-send-one sent'; btn.textContent='📧 Enviado ✓'; }
+    renderNotifyList();
     showToast(`✅ E-mail enviado — ${item.task.name.slice(0,40)}`,'green');
   }catch(err){
     if(btn){ btn.disabled=false; btn.className='btn-send-one err'; btn.textContent='📧 Erro — tentar de novo'; }
