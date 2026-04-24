@@ -363,8 +363,9 @@ function confirmDeliveryInSheet(id, today, prazo, month) {
   }
 
   updateSheet(ss.getSheetByName('Todos') || ss.getSheets()[0]);
-  if (month && MONTH_SHEET[month]) {
-    updateSheet(ss.getSheetByName(MONTH_SHEET[month]));
+  var monthKey = month ? month.toLowerCase() : '';
+  if (monthKey && MONTH_SHEET[monthKey]) {
+    updateSheet(ss.getSheetByName(MONTH_SHEET[monthKey]));
   }
 }
 
@@ -891,7 +892,7 @@ function handleDeleteTask(body) {
     deleteRowById(sheetTodos, id);
 
     // Remove da aba do mês
-    var mesLabel = month ? (MONTH_SHEET[month] || '') : '';
+    var mesLabel = month ? (MONTH_SHEET[month.toLowerCase()] || '') : '';
     if (mesLabel) {
       var sheetMes = ss.getSheetByName(mesLabel);
       if (sheetMes) deleteRowById(sheetMes, id);
@@ -1137,7 +1138,7 @@ function logTasksToSheet(tasks) {
   var mesSheets  = {};
 
   tasks.forEach(function(t) {
-    var mesLabel = t.month ? (MONTH_SHEET[t.month] || '') : '';
+    var mesLabel = t.month ? (MONTH_SHEET[t.month.toLowerCase()] || '') : '';
     if (mesLabel && !mesSheets[mesLabel]) {
       mesSheets[mesLabel] = ensureSheet(ss, mesLabel);
     }

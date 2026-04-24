@@ -3004,10 +3004,10 @@ function _switchTabInternal(tab) {
   document.getElementById('viewShared').style.display      = shared             ? 'block' : 'none';
   document.getElementById('viewDashboard').style.display   = tab === 'dashboard' ? 'block' : 'none';
   document.getElementById('viewAtividades').style.display  = tab === 'atividades'? 'block' : 'none';
-  document.getElementById('viewReport').style.display      = tab === 'report'    ? 'block' : 'none';
+  const _vr = document.getElementById('viewReport'); if(_vr) _vr.style.display = tab === 'report' ? 'block' : 'none';
   document.getElementById('tabDash').classList.toggle('active', tab === 'dashboard');
   document.getElementById('tabAtiv').classList.toggle('active', tab === 'atividades');
-  document.getElementById('tabReport').classList.toggle('active', tab === 'report');
+  const _tr = document.getElementById('tabReport'); if(_tr) _tr.classList.toggle('active', tab === 'report');
   document.getElementById('btnNew').style.display    = tab === 'atividades' ? 'inline-flex' : 'none';
   document.getElementById('btnLogout').style.display = tab === 'atividades' ? 'flex' : 'none';
   const titles = {
