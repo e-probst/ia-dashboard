@@ -1706,7 +1706,7 @@ function saveTask(){
         const sib={id:nextId++,name,note,resp,dest,email,prazo:ap,entrega:ae,status:as_,
           month:mKey,_edited:true,_new:true,_dateEdited:true,recurring:true,recurringGroupId:groupId};
         allTasks.push(sib);
-        if(sib.month===activeMth) tasks.push(sib);
+        if(activeMth==='geral'||sib.month===activeMth) tasks.push(sib);
         pushTaskToGas(sib);
       });
       // Remove meses desmarcados (exceto o mês da tarefa que está sendo editada)
@@ -1737,7 +1737,7 @@ function saveTask(){
         const sib={id:nextId++,name,note,resp,dest,email,prazo:ap,entrega:ae,status:as_,
           month:mKey,_edited:true,_new:true,_dateEdited:true,recurring:true,recurringGroupId:groupId};
         allTasks.push(sib);
-        if(sib.month===activeMth) tasks.push(sib);
+        if(activeMth==='geral'||sib.month===activeMth) tasks.push(sib);
         pushTaskToGas(sib);
       });
       showToast(`✅ Tarefa recorrente criada em ${selectedMonths.length} mês(es)!`,'green');
@@ -1815,7 +1815,7 @@ function restoreTask(i){
   t._edited=true; t._dateEdited=true; // garante que datas sejam preservadas ao restaurar
   if(!t.month||!MONTHS.find(m=>m.key===t.month)) t.month=(activeMth==='geral'?_curMth:activeMth); // corrige mês inválido; evita 'geral' como mês
   allTasks.push(t);
-  if(t.month===activeMth)tasks.push(t);
+  if(activeMth==='geral'||t.month===activeMth)tasks.push(t);
   if(t.id>=nextId) nextId=t.id+1; // evita colisão de IDs em novas tarefas
   pushTaskToGas(t);
   saveOverrides();updateTrashBadge();renderTrashList();renderTimeline();applyFilters();showToast('↩ Tarefa restaurada!','green');markReportStale();
